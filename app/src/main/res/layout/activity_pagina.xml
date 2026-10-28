@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Página de um tipo (filmes, séries...): nome no topo, o título focado em destaque com a imagem
+     dele ao fundo, e as fileiras embaixo — o jeito de toda TV. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@android:color/transparent">
+
+    <!-- Imagem do título focado e os degradês que a escurecem: aparecem
+         juntos, e sem título focado fica só o fundo do app. -->
+    <FrameLayout
+        android:id="@+id/inicioFundoGrupo"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:alpha="0">
+        <ImageView
+            android:id="@+id/inicioFundo"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:contentDescription="@null"
+            android:scaleType="centerCrop" />
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/bg_destaque_lado" />
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/bg_destaque_baixo" />
+    </FrameLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clipChildren="false"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/paginaNome"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="56dp"
+            android:layout_marginTop="28dp"
+            android:fontFamily="sans-serif-medium"
+            android:letterSpacing="0.1"
+            android:textAllCaps="true"
+            android:textColor="@color/accent"
+            android:textSize="18sp" />
+
+        <!-- O destaque: o que está focado agora. -->
+        <LinearLayout
+            android:id="@+id/inicioDestaque"
+            android:layout_width="620dp"
+            android:layout_height="150dp"
+            android:layout_marginStart="56dp"
+            android:layout_marginTop="16dp"
+            android:orientation="vertical">
+            <TextView
+                android:id="@+id/inicioTitulo"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:fontFamily="sans-serif-medium"
+                android:maxLines="1"
+                android:textColor="@color/text_primary"
+                android:textSize="32sp" />
+            <TextView
+                android:id="@+id/inicioMeta"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="@color/accent"
+                android:textSize="17sp" />
+            <TextView
+                android:id="@+id/inicioSinopse"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:ellipsize="end"
+                android:lineSpacingMultiplier="1.15"
+                android:maxLines="2"
+                android:textColor="#D9FFFFFF"
+                android:textSize="16sp" />
+        </LinearLayout>
+
+        <br.com.saimo.tv.ListaSemFuga
+            android:id="@+id/inicioFilas"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:clipChildren="true"
+            android:clipToPadding="false"
+            android:paddingStart="30dp"
+            android:paddingBottom="120dp" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/paginaStatus"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_marginBottom="28dp"
+        android:background="@drawable/bg_card"
+        android:paddingStart="18dp"
+        android:paddingTop="8dp"
+        android:paddingEnd="18dp"
+        android:paddingBottom="8dp"
+        android:textColor="@color/text_primary"
+        android:textSize="15sp"
+        android:visibility="gone" />
+</FrameLayout>

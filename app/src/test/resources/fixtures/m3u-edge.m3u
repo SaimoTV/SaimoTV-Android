@@ -1,0 +1,29 @@
+﻿#EXTM3U url-tvg="http://x/epg.xml.gz" x-tvg-url="http://x/e.xml"
+#EXTINF:-1 tvg-id="globo.br" tvg-logo="https://img.exemplo.com/globo.png" group-title="Abertos;Notícias",Globo (720p) [Not 24/7]
+https://a.exemplo.com/globo/720.m3u8
+#EXTINF:-1 tvg-id="globo.br" tvg-logo="" group-title="",GLOBO (1080p)
+https://b.exemplo.com/globo/1080.m3u8
+#EXTINF:-1 tvg-name="Foo, Bar" group-title="Filmes",
+#EXTVLCOPT:http-referrer=https://ref.exemplo.com/
+#EXTVLCOPT:http-user-agent=VLC/3.0.20
+https://c.exemplo.com/foo.m3u8
+#EXTINF:-1 group-title="Esportes",Sportv Ação (Nacional)
+https://d.exemplo.com/sportv.m3u8|User-Agent=Mozilla/5.0&Referer=https://r.exemplo.com/
+#EXTINF:-1 tvg-id="drm.br",Canal DRM
+#KODIPROP:inputstream.adaptive.license_type=clearkey
+#KODIPROP:inputstream.adaptive.license_key=0123456789abcdef0123456789abcdef:fedcba9876543210fedcba9876543210
+https://e.exemplo.com/drm/manifest.mpd
+#EXTINF:-1 tvg-logo="data:image/png;base64,AAAA" group-title="Rádios",Rádio "Boa" FM
+rtmp://f.exemplo.com/live/radio
+#EXTINF:-1,Com Grupo Extra
+#EXTGRP:Variedades
+https://g.exemplo.com/extra.m3u8
+#EXTINF:-1,   
+https://h.exemplo.com/sem-nome.m3u8
+https://i.exemplo.com/solto.m3u8
+#EXTINF:-1 tvg-id="so.id@HD",
+https://j.exemplo.com/soid.m3u8
+#EXTINF:-1,Caixa Alta (HD)
+  https://k.exemplo.com/caixa.m3u8  
+#EXTINF:-1,caixa alta
+https://k.exemplo.com/caixa.m3u8

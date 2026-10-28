@@ -1,0 +1,145 @@
+[
+ {
+  "nome": "Globo",
+  "grupo": "Abertos",
+  "logo": "https://img.exemplo.com/globo.png",
+  "fontes": [
+   {
+    "url": "https://a.exemplo.com/globo/720.m3u8",
+    "referer": null,
+    "ua": null,
+    "keyId": null,
+    "key": null,
+    "qualidade": "720p"
+   },
+   {
+    "url": "https://b.exemplo.com/globo/1080.m3u8",
+    "referer": null,
+    "ua": null,
+    "keyId": null,
+    "key": null,
+    "qualidade": "1080p"
+   }
+  ]
+ },
+ {
+  "nome": "Foo, Bar",
+  "grupo": "Filmes",
+  "logo": null,
+  "fontes": [
+   {
+    "url": "https://c.exemplo.com/foo.m3u8",
+    "referer": "https://ref.exemplo.com/",
+    "ua": "VLC/3.0.20",
+    "keyId": null,
+    "key": null,
+    "qualidade": null
+   }
+  ]
+ },
+ {
+  "nome": "Sportv Ação (Nacional)",
+  "grupo": "Esportes",
+  "logo": null,
+  "fontes": [
+   {
+    "url": "https://d.exemplo.com/sportv.m3u8",
+    "referer": "https://r.exemplo.com/",
+    "ua": "Mozilla/5.0",
+    "keyId": null,
+    "key": null,
+    "qualidade": null
+   }
+  ]
+ },
+ {
+  "nome": "Canal DRM",
+  "grupo": null,
+  "logo": null,
+  "fontes": [
+   {
+    "url": "https://e.exemplo.com/drm/manifest.mpd",
+    "referer": null,
+    "ua": null,
+    "keyId": "0123456789abcdef0123456789abcdef",
+    "key": "fedcba9876543210fedcba9876543210",
+    "qualidade": null
+   }
+  ]
+ },
+ {
+  "nome": "Com Grupo Extra",
+  "grupo": "Variedades",
+  "logo": null,
+  "fontes": [
+   {
+    "url": "https://g.exemplo.com/extra.m3u8",
+    "referer": null,
+    "ua": null,
+    "keyId": null,
+    "key": null,
+    "qualidade": null
+   }
+  ]
+ },
+ {
+  "nome": "Canal 6",
+  "grupo": null,
+  "logo": null,
+  "fontes": [
+   {
+    "url": "https://h.exemplo.com/sem-nome.m3u8",
+    "referer": null,
+    "ua": null,
+    "keyId": null,
+    "key": null,
+    "qualidade": null
+   }
+  ]
+ },
+ {
+  "nome": "Canal 7",
+  "grupo": null,
+  "logo": null,
+  "fontes": [
+   {
+    "url": "https://i.exemplo.com/solto.m3u8",
+    "referer": null,
+    "ua": null,
+    "keyId": null,
+    "key": null,
+    "qualidade": null
+   }
+  ]
+ },
+ {
+  "nome": "so.id@HD",
+  "grupo": null,
+  "logo": null,
+  "fontes": [
+   {
+    "url": "https://j.exemplo.com/soid.m3u8",
+    "referer": null,
+    "ua": null,
+    "keyId": null,
+    "key": null,
+    "qualidade": null
+   }
+  ]
+ },
+ {
+  "nome": "Caixa Alta",
+  "grupo": null,
+  "logo": null,
+  "fontes": [
+   {
+    "url": "https://k.exemplo.com/caixa.m3u8",
+    "referer": null,
+    "ua": null,
+    "keyId": null,
+    "key": null,
+    "qualidade": null
+   }
+  ]
+ }
+]

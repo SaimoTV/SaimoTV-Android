@@ -1,0 +1,12 @@
+# Fixture de teste: tabelas para os testes que falam com os feeds de verdade.
+meuguia	HBO	HBO
+meuguia	Globo SP	GRD
+meuguia	SBT	SBT
+meuguia	Band	BAN
+meuguia	ESPN	ESP
+meuguia	History	HIS
+alias	adult swim	trutv
+alias	sportv 2	sportv2
+alias	history	history channel
+alias	band	band sp
+alias	sbt	sbt sp

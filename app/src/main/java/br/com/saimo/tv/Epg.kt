@@ -1,0 +1,706 @@
+package br.com.saimo.tv
+
+import android.content.Context
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.File
+import java.io.Reader
+import java.net.HttpURLConnection
+import java.net.URL
+import java.text.Normalizer
+import java.util.Locale
+import java.util.zip.GZIPInputStream
+
+private val TEMPORADA_S = Regex("^S(\\d+)")
+private val NUMEROS = Regex("""\d+""")
+
+data class Programme(
+    val title: String,
+    val category: String,
+    val start: Long,
+    val stop: Long,
+    /// Extras que os feeds publicam de forma irregular. Nenhuma fonte traz
+    /// classificação indicativa — não existe no dado.
+    val poster: String? = null,
+    val episode: String? = null,
+    val year: String? = null,
+    /// A sinopse vem em quase todo programa do XMLTV e era descartada.
+    val description: String? = null,
+    val cast: List<String> = emptyList(),
+) {
+    /// XMLTV escreve episódio como "0.2." no sistema xmltv_ns: temporada,
+    /// episódio e parte, todos base zero. Cru não diz nada; vira "T1 E3".
+    val episodeLabel: String?
+        get() {
+            val raw = episode?.takeIf { it.isNotBlank() } ?: return null
+            val label = if ("." !in raw) raw.replace(TEMPORADA_S, "T$1") else {
+                val fields = raw.split(".").map { it.substringBefore("/") }
+                val season = fields.getOrNull(0)?.trim()?.toIntOrNull()?.plus(1)
+                val number = fields.getOrNull(1)?.trim()?.toIntOrNull()?.plus(1)
+                when {
+                    season != null && number != null -> "T$season E$number"
+                    season != null -> "T$season"
+                    number != null -> "E$number"
+                    else -> null
+                }
+            } ?: return null
+            // Programas diários usam o campo como contador corrido: um
+            // telejornal em "T80 E221" é ruído, não informação.
+            // toIntOrNull, e não toInt: a Pluto publica a data de estreia
+            // inteira neste campo ("20260915212508"), que não cabe num Int —
+            // o app fechava ao abrir canal da Pluto.
+            val numbers = NUMEROS.findAll(label).mapNotNull { it.value.toIntOrNull() }.toList()
+            val season = numbers.firstOrNull() ?: return null
+            if (season > 40) return null
+            if (numbers.size > 1 && numbers.last() > 200) return null
+            return label
+        }
+
+    /// Linha compacta para onde cabe uma segunda informação.
+    val shortDetail: String?
+        get() = listOfNotNull(category.ifBlank { null }, episodeLabel, year)
+            .takeIf { it.isNotEmpty() }?.joinToString(" · ")
+
+    fun isOnAir(now: Long) = start <= now && stop > now
+    fun progress(now: Long): Float =
+        if (stop <= start) 0f else ((now - start).toFloat() / (stop - start)).coerceIn(0f, 1f)
+}
+
+/**
+ * Programme guide, mirroring the macOS build.
+ *
+ * meuguia.tv comes first because the XMLTV feeds carry the wrong schedule for
+ * several channels; the feeds then fill whatever it does not cover. What gets
+ * cached is the *parsed* result, not the 16 MB of XML, so a later launch has the
+ * guide on screen immediately instead of re-parsing.
+ */
+object Epg {
+
+    /// Feeds XMLTV (em ordem), guia da Pluto e apelidos de canal: de `guia.txt`.
+    private val FEEDS: List<String> get() = GuiaTabelas.atual.feeds
+    private val PLUTO_URL: String? get() = GuiaTabelas.atual.pluto
+    private val PLUTO_ID = Regex("(?:plu-|images\\.pluto\\.tv/channels/)([0-9a-f]{24})")
+    private const val CACHE_TTL_MS = 6 * 60 * 60 * 1000L
+    private const val PAST_WINDOW_MS = 6 * 60 * 60 * 1000L
+    private const val FUTURE_WINDOW_MS = 3 * 24 * 60 * 60 * 1000L
+    private const val LEVE_WINDOW_MS = 30 * 60 * 60 * 1000L
+
+    /** Nomes que o feed escreve diferente do catálogo (de `guia.txt`). */
+    private val ALIASES: Map<String, String> get() = GuiaTabelas.atual.alias
+    private val NOISE = setOf("hd", "sd", "fhd", "uhd", "4k", "br")
+
+    @Volatile
+    private var byChannel: Map<String, List<Programme>> = emptyMap()
+
+    val channelsWithGuide: Int get() = byChannel.size
+
+    /** Solta o guia da memória; o Ao vivo o relê do disco quando voltar. */
+    fun liberar() {
+        byChannel = emptyMap()
+    }
+
+    /** Todos os programas do canal, para a grade. */
+    fun schedule(channel: String): List<Programme> = byChannel[channel] ?: emptyList()
+
+    fun nowNext(channel: String, now: Long = System.currentTimeMillis()): Pair<Programme, Programme?>? {
+        val list = byChannel[channel] ?: return null
+        val index = list.indexOfFirst { it.isOnAir(now) }
+        if (index < 0) return null
+        // Alguns feeds preenchem o buraco com "No Data": é o mesmo que não ter guia.
+        if (list[index].title.isBlank() || list[index].title.equals("No Data", ignoreCase = true)) return null
+        return list[index] to list.getOrNull(index + 1)
+    }
+
+    /**
+     * Só o que já está em disco, sem baixar nada: é o que a tela inicial usa
+     * para dizer o que passa agora, sem disputar a rede nem a memória com o
+     * guia completo (que a tela de canais baixa quando precisa).
+     */
+    suspend fun carregarCache(context: Context): Boolean = withContext(Dispatchers.IO) {
+        if (byChannel.isNotEmpty()) return@withContext true
+        readCache(context)?.let { byChannel = it; true } ?: false
+    }
+
+    /// Uma carga por vez: o Ao vivo e a Programação abrem quase juntos, e
+    /// duas cargas em paralelo eram dois guias inteiros no heap ao mesmo tempo.
+    private val carga = Mutex()
+
+    suspend fun load(context: Context, onReady: () -> Unit) = withContext(Dispatchers.IO) {
+        carga.withLock { carregar(context, onReady) }
+    }
+
+    private suspend fun carregar(context: Context, onReady: () -> Unit) {
+        // Sem endereço da lista de canais não há o que consultar.
+        if (Enderecos.canais == null || Remote.channels.isEmpty()) return
+        GuiaTabelas.carregarCache(context)
+        // O guia já na memória vale: reler o cache (uns 7 MB de JSON) a cada
+        // abertura do Ao vivo era 1,5 s e dezenas de MB de lixo no TV Box de
+        // 1 GB, logo quando o canal começa a tocar.
+        if (byChannel.isEmpty()) readCache(context)?.let { byChannel = it }
+        if (byChannel.isNotEmpty()) withContext(Dispatchers.Main) { onReady() }
+        // Um canal novo no catálogo torna o cache velho na hora, mesmo dentro do
+        // prazo: sem isto, quem já tinha o app instalado ficaria até seis horas
+        // com o canal recém-chegado sem guia nenhum.
+        val stale = cacheAge(context) > CACHE_TTL_MS ||
+            byChannel.isEmpty() ||
+            readSignature(context) != signature()
+        if (!stale) return
+        // As tabelas (guia.txt) vêm do mesmo endereço; sem elas não há fonte.
+        GuiaTabelas.atualizar(context)
+
+        val pluto = idsDaPluto(Remote.channels)
+        val principais = plutoPrincipais(Remote.channels)
+        // Canal da Pluto só usa o guia da Pluto; os outros nem tentam casá-lo.
+        val names = Remote.channels.map { it.name }.filterNot { it in principais }
+        val from = System.currentTimeMillis() - PAST_WINDOW_MS
+        // Em aparelho de 1 GB, três dias de grade com sinopse são dezenas de MB
+        // no heap enquanto o canal toca — o bastante para o sistema matar o
+        // app. Um dia e pouco cobre o que alguém consulta no guia.
+        val to = System.currentTimeMillis() +
+            if (Aparelho.poucaMemoria) LEVE_WINDOW_MS else FUTURE_WINDOW_MS
+        val merged = LinkedHashMap<String, List<Programme>>()
+
+        suspend fun publish() {
+            byChannel = LinkedHashMap(merged)
+            withContext(Dispatchers.Main) { onReady() }
+        }
+
+        // guiadetv primeiro: cobre 121+ canais com horários precisos no fuso
+        // de Brasília, sem bloqueio 429 e com sinopse em 99,8% dos programas.
+        merged.putAll(runCatching { GuiaDeTv.fetch(names, from, to) }.getOrNull().orEmpty())
+        if (merged.isNotEmpty()) publish()
+
+        val urlPluto = PLUTO_URL
+        val daPluto = if (pluto.isEmpty() || urlPluto == null) emptyMap() else
+            runCatching { parseFeed(urlPluto, emptyList(), from, to, HashMap(), pluto) }
+                .getOrNull().orEmpty()
+        daPluto.filterKeys { it in principais }.takeIf { it.isNotEmpty() }?.let {
+            merged.putAll(it)
+            publish()
+        }
+
+        // meuguia como reserva: só para quem o guiadetv não listou (ex.: Canal Brasil).
+        val faltandoMeuGuia = names.filter { merged[it] == null }
+        if (faltandoMeuGuia.isNotEmpty()) {
+            merged.putAll(runCatching { MeuGuia.fetch(faltandoMeuGuia, from, to) }.getOrNull().orEmpty())
+            if (merged.isNotEmpty()) publish()
+        }
+
+        // Os feeds vêm um de cada vez e são lidos em fluxo. Um deles tem 15 MB:
+        // virar String de uma vez custa uns 90 MB transitórios de char[] — num
+        // TV Box isso é OutOfMemoryError engolido pelo runCatching, ou seja, o
+        // guia simplesmente não aparecia.
+        val byTitle = HashMap<String, Programme>()
+        for (url in FEEDS) {
+            // Com pouca memória, os feeds só completam quem ficou sem guia: ler
+            // os canais que o meuguia já cobriu serviu só para as imagens, e é
+            // o que fazia o pico.
+            val alvo = if (Aparelho.poucaMemoria) names.filter { merged[it] == null } else names
+            if (alvo.isEmpty()) break
+            val parsed = runCatching { parseFeed(url, alvo, from, to, byTitle) }
+                .getOrNull() ?: continue
+            for ((channel, programmes) in parsed) {
+                if (merged[channel] == null) merged[channel] = programmes
+            }
+            // O enriquecimento acontece a cada feed, não no fim de todos: é ele
+            // que traz as imagens, e esperar os 19 MB inteiros significava abrir
+            // o guia numa grade sem nenhuma.
+            enrich(merged, byTitle)
+            publish()
+        }
+
+        // Onde a Pluto é só reserva (TV Cultura, CNBC…), a grade dela é
+        // genérica: entra só se nenhum outro guia trouxe nada.
+        val reservas = daPluto.filterKeys { it !in principais && merged[it] == null }
+        if (reservas.isNotEmpty()) {
+            merged.putAll(reservas)
+            publish()
+        }
+
+        if (merged.isEmpty()) return
+        writeCache(context, merged)
+    }
+
+    /**
+     * meuguia publica só título e gênero. Casando por título, os feeds trazem o
+     * pôster, a sinopse, o elenco, o episódio e o ano sem tocar no horário, que
+     * é justamente o dado em que o meuguia é mais confiável.
+     *
+     * Preenche campo a campo: parar no primeiro programa que já tem pôster
+     * deixava sem sinopse justamente os que o feed conseguiu ilustrar.
+     */
+    /** id da Pluto -> nome do canal, pelo link de alguma fonte ou pelo logo. */
+    internal fun idsDaPluto(channels: List<Channel>): Map<String, String> {
+        val out = LinkedHashMap<String, String>()
+        for (channel in channels) {
+            val id = (channel.sources.map { it.url } + listOfNotNull(channel.logo))
+                .firstNotNullOfOrNull { PLUTO_ID.find(it)?.groupValues?.get(1) } ?: continue
+            out.putIfAbsentCompat(id, channel.name)
+        }
+        return out
+    }
+
+    /**
+     * Canais em que a Pluto é a fonte principal (a primeira, ou a Pluto só no
+     * logo). Nos outros ela é reserva, e a grade dela é genérica.
+     */
+    internal fun plutoPrincipais(channels: List<Channel>): Set<String> =
+        channels.filter { channel ->
+            val links = channel.sources.map { it.url }
+            val primeira = links.firstOrNull()?.let { PLUTO_ID.containsMatchIn(it) } == true
+            val soLogo = links.none { PLUTO_ID.containsMatchIn(it) } &&
+                channel.logo?.let { PLUTO_ID.containsMatchIn(it) } == true
+            primeira || soLogo
+        }.mapTo(HashSet()) { it.name }
+
+    // putIfAbsent do Map só existe do Android 7 em diante.
+    private fun <K, V> MutableMap<K, V>.putIfAbsentCompat(key: K, value: V) {
+        if (!containsKey(key)) put(key, value)
+    }
+
+    private fun enrich(
+        merged: MutableMap<String, List<Programme>>, byTitle: Map<String, Programme>,
+    ) {
+        for ((channel, programmes) in merged.toList()) {
+            merged[channel] = programmes.map { programme ->
+                if (programme.poster != null && programme.description != null &&
+                    programme.cast.isNotEmpty()) return@map programme
+                byTitle[normalise(programme.title)]?.let {
+                    programme.copy(
+                        poster = programme.poster ?: it.poster,
+                        episode = programme.episode ?: it.episode,
+                        year = programme.year ?: it.year,
+                        description = programme.description ?: it.description,
+                        cast = programme.cast.ifEmpty { it.cast },
+                        category = programme.category.ifBlank { it.category })
+                } ?: programme
+            }
+        }
+    }
+
+    // MARK: - XMLTV
+
+    /**
+     * Reads one XMLTV feed straight off the socket.
+     *
+     * XMLTV writes every `<channel>` before the first `<programme>`, so a single
+     * forward pass is enough: the id map is resolved the moment programmes
+     * start, and only elements inside the window are ever kept.
+     */
+    internal fun parseFeed(
+        url: String, wanted: List<String>, from: Long, to: Long,
+        byTitle: MutableMap<String, Programme>,
+        /** id do feed -> canal, pulando o casamento por nome (guia da Pluto). */
+        ids: Map<String, String> = emptyMap(),
+    ): Map<String, List<Programme>> {
+        // display-name -> every id carrying it. Feeds repeat a channel under
+        // names that normalise alike, and keeping only the first id binds to
+        // whichever copy came first — sometimes the one with no programmes.
+        val nameToIds = HashMap<String, MutableList<String>>()
+        var idToChannel: Map<String, String>? = ids.ifEmpty { null }
+        val out = HashMap<String, MutableList<Programme>>()
+
+        openStream(url).use { reader ->
+            scanElements(reader) { tag, element ->
+                if (tag == CHANNEL) {
+                    if (idToChannel != null) return@scanElements
+                    val id = attribute(element, "id") ?: return@scanElements
+                    val display = between(element, "<display-name", "</display-name>")
+                        ?.substringAfter('>', "") ?: return@scanElements
+                    if (display.isNotBlank()) {
+                        nameToIds.getOrPut(normalise(display)) { mutableListOf() }.add(id)
+                    }
+                    return@scanElements
+                }
+                val map = idToChannel ?: resolveIds(nameToIds, wanted).also { idToChannel = it }
+                if (map.isEmpty()) return@scanElements
+                val programme = parseProgramme(element, map, from, to) ?: return@scanElements
+                val key = normalise(programme.second.title)
+                if (key.isNotEmpty() && byTitle[key]?.poster == null) byTitle[key] = programme.second
+                out.getOrPut(programme.first) { mutableListOf() } += programme.second
+            }
+        }
+        return out.mapValues { it.value.sortedBy { p -> p.start } }
+    }
+
+    /**
+     * Exact and alias matches first, marking ids as taken; the loose prefix rule
+     * only runs afterwards, and never over an id already claimed — otherwise
+     * "HBO2" swallows the id belonging to "HBO 2".
+     */
+    private fun resolveIds(
+        nameToIds: Map<String, MutableList<String>>, wanted: List<String>,
+    ): Map<String, String> {
+        val idToChannel = HashMap<String, String>()
+        val claimed = HashSet<String>()
+        val unresolved = mutableListOf<Pair<String, String>>()
+        for (name in wanted) {
+            val key = normalise(name)
+            val ids = nameToIds[key] ?: ALIASES[key]?.let { nameToIds[it] }
+            if (ids != null) {
+                ids.forEach { idToChannel[it] = name; claimed.add(it) }
+            } else {
+                unresolved += name to key
+            }
+        }
+        for ((name, key) in unresolved) {
+            // Prefixo só quebrando palavra: "viva" não pode casar com
+            // "vivax tv". Ver a mesma regra no EPG.swift.
+            val candidates = nameToIds.filterKeys {
+                "$it ".startsWith("$key ") || "$key ".startsWith("$it ")
+            }
+            if (candidates.size != 1) continue
+            candidates.values.first().filterNot { it in claimed }.forEach {
+                idToChannel[it] = name; claimed.add(it)
+            }
+        }
+        return idToChannel
+    }
+
+    private fun parseProgramme(
+        element: String, idToChannel: Map<String, String>, from: Long, to: Long,
+    ): Pair<String, Programme>? {
+        val head = element.substring(0, element.indexOf('>').takeIf { it > 0 } ?: return null)
+        val channel = attribute(head, "channel")?.let { idToChannel[it] } ?: return null
+        val start = parseXmltvDate(attribute(head, "start") ?: return null) ?: return null
+        val stop = parseXmltvDate(attribute(head, "stop") ?: return null) ?: return null
+        if (stop <= from || start >= to) return null
+
+        val title = text(element, "title")?.takeIf { it.isNotEmpty() } ?: return null
+        val category = text(element, "category") ?: ""
+        // O pôster vem em atributo, não em texto de elemento.
+        val poster = between(element, "<icon", ">")?.let { attribute(it, "src") }?.let(::decodeEntities)
+        // A Pluto usa o campo para a data de estreia ("original-air-date"):
+        // não é episódio nenhum, e sem isto viraria um rótulo sem sentido.
+        val episode = between(element, "<episode-num", "</episode-num>")
+            ?.takeIf { "original-air-date" !in it }
+            ?.substringAfter('>', "")
+            ?.let { decodeEntities(it).trim() }
+            ?.takeIf { it.isNotEmpty() }
+        val year = text(element, "date")?.take(4)
+        val description = text(element, "desc")?.takeIf { it.isNotBlank() }
+        // O elenco vem como uma lista de <actor> dentro de <credits>.
+        val cast = between(element, "<credits", "</credits>")
+            ?.let { bloco ->
+                ATOR.findAll(bloco)
+                    .map { decodeEntities(it.groupValues[1]).trim() }
+                    .filter { it.isNotEmpty() }
+                    .toList()
+            } ?: emptyList()
+        return channel to Programme(title, category, start, stop, poster, episode, year,
+                                    description, cast)
+    }
+
+    /** `name="value"` out of a tag's attribute text. */
+    private fun attribute(text: String, name: String): String? {
+        var from = 0
+        while (true) {
+            val marker = text.indexOf("$name=\"", from)
+            if (marker < 0) return null
+            // Evita casar o sufixo de outro atributo: "channel" dentro de
+            // "xchannel" não é o mesmo campo.
+            val before = if (marker == 0) ' ' else text[marker - 1]
+            if (before == ' ' || before == '\t' || before == '\n' || before == '<') {
+                val start = marker + name.length + 2
+                val end = text.indexOf('"', start)
+                return if (end < 0) null else text.substring(start, end)
+            }
+            from = marker + 1
+        }
+    }
+
+    /** Texto de `<tag …>texto</tag>`, já sem entidades. */
+    private fun text(element: String, tag: String): String? {
+        val body = between(element, "<$tag", "</$tag>") ?: return null
+        val start = body.indexOf('>')
+        if (start < 0) return null
+        return decodeEntities(body.substring(start + 1)).trim()
+    }
+
+    private fun between(text: String, open: String, close: String): String? {
+        val start = text.indexOf(open)
+        if (start < 0) return null
+        val end = text.indexOf(close, start + open.length)
+        if (end < 0) return null
+        return text.substring(start, end)
+    }
+
+    private const val CHANNEL = "channel"
+    private const val PROGRAMME = "programme"
+    /// Cauda mantida entre blocos para uma tag partida no limite do buffer.
+    private const val TAIL = 32
+    /// Um elemento maior que isto é lixo, não um programa: sem o teto, um
+    /// fechamento que nunca vem cresceria o buffer até estourar a heap.
+    private const val MAX_ELEMENT = 1 shl 20
+
+    /**
+     * Hands `<channel>` and `<programme>` elements to the caller one at a time,
+     * holding at most one element in memory instead of the whole document.
+     */
+    private inline fun scanElements(reader: Reader, onElement: (String, String) -> Unit) {
+        val chunk = CharArray(1 shl 16)
+        val pending = StringBuilder()
+        var open: String? = null
+        while (true) {
+            val read = reader.read(chunk)
+            if (read < 0) break
+            pending.append(chunk, 0, read)
+            while (true) {
+                val tag = open
+                if (tag == null) {
+                    val found = nextOpening(pending)
+                    if (found == null) {
+                        if (pending.length > TAIL) pending.delete(0, pending.length - TAIL)
+                        break
+                    }
+                    pending.delete(0, found.first)
+                    open = found.second
+                } else {
+                    val marker = pending.indexOf("</$tag>")
+                    if (marker < 0) {
+                        if (pending.length > MAX_ELEMENT) { pending.setLength(0); open = null }
+                        break
+                    }
+                    val end = marker + tag.length + 3
+                    onElement(tag, pending.substring(0, end))
+                    pending.delete(0, end)
+                    open = null
+                }
+            }
+        }
+    }
+
+    /** Earliest `<channel` or `<programme` opening in the buffer. */
+    private fun nextOpening(buffer: StringBuilder): Pair<Int, String>? {
+        val channel = buffer.indexOf("<$CHANNEL")
+        val programme = buffer.indexOf("<$PROGRAMME")
+        return when {
+            channel >= 0 && (programme < 0 || channel < programme) -> channel to CHANNEL
+            programme >= 0 -> programme to PROGRAMME
+            else -> null
+        }
+    }
+
+    /**
+     * XMLTV timestamps look like `20260809153000 -0300`.
+     *
+     * Conta feita à mão, sem `Calendar`: são dezenas de milhares de datas por
+     * carga do guia, e um `Calendar` por data (mais seis `substring`) era o
+     * maior lixo do parse enquanto o vídeo tocava no TV Box.
+     */
+    private fun parseXmltvDate(text: String): Long? {
+        if (text.length < 14) return null
+        fun num(de: Int, ate: Int): Int {
+            var n = 0
+            for (i in de until ate) {
+                val d = text[i] - '0'
+                if (d !in 0..9) return -1
+                n = n * 10 + d
+            }
+            return n
+        }
+        val ano = num(0, 4); val mes = num(4, 6); val dia = num(6, 8)
+        val hora = num(8, 10); val minuto = num(10, 12); val segundo = num(12, 14)
+        if (ano < 0 || mes !in 1..12 || dia !in 1..31 || hora < 0 || minuto < 0 || segundo < 0) return null
+        var millis = (diasDesde1970(ano, mes, dia) * 86_400L + hora * 3_600L + minuto * 60L + segundo) * 1000L
+        var i = 14
+        while (i < text.length && text[i] == ' ') i++
+        if (text.length - i >= 5 && (text[i] == '+' || text[i] == '-')) {
+            val h = num(i + 1, i + 3); val m = num(i + 3, i + 5)
+            if (h >= 0 && m >= 0) {
+                val offset = (h * 3600 + m * 60) * 1000L
+                millis += if (text[i] == '-') offset else -offset
+            }
+        }
+        return millis
+    }
+
+    /** Dias de 1970-01-01 até a data (calendário gregoriano), sem fuso. */
+    internal fun diasDesde1970(ano: Int, mes: Int, dia: Int): Long {
+        val y = if (mes <= 2) ano - 1 else ano
+        val era = (if (y >= 0) y else y - 399) / 400
+        val anoDaEra = y - era * 400
+        val diaDoAno = (153 * (mes + (if (mes > 2) -3 else 9)) + 2) / 5 + dia - 1
+        val diaDaEra = anoDaEra * 365 + anoDaEra / 4 - anoDaEra / 100 + diaDoAno
+        return era * 146_097L + diaDaEra - 719_468L
+    }
+
+    // MARK: - Shared helpers
+
+    /**
+     * Chamada para cada canal e cada programa dos feeds — dezenas de milhares
+     * de vezes. Com três `Regex` novos por chamada, só compilar padrões dava
+     * 150 MB de memória nativa por carga do guia; aqui é um passe de letras.
+     */
+    fun normalise(text: String): String {
+        val value = Normalizer.normalize(decodeEntities(text).replaceFirst(PREFIXO_PAIS, ""), Normalizer.Form.NFD)
+        val limpo = StringBuilder(value.length)
+        for (ch in value) {
+            if (Character.getType(ch) == Character.NON_SPACING_MARK.toInt()) continue
+            val c = ch.lowercaseChar()
+            limpo.append(if (c in 'a'..'z' || c in '0'..'9') c else ' ')
+        }
+        val tokens = limpo.split(' ').filter { it.isNotEmpty() }.toMutableList()
+        while (tokens.size > 1 && tokens.last() in NOISE) tokens.removeAt(tokens.size - 1)
+        return tokens.joinToString(" ")
+    }
+
+    private val ATOR = Regex("<actor[^>]*>(.*?)</actor>", RegexOption.DOT_MATCHES_ALL)
+    private val PREFIXO_PAIS = Regex("""^[A-Z]{2}\s*[-|]\s*""")
+
+    fun decodeEntities(text: String): String =
+        if ('&' !in text) text
+        else text.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
+            .replace("&quot;", "\"").replace("&apos;", "'").replace("&#39;", "'")
+
+    fun download(url: String, referer: String? = null): String =
+        openStream(url, referer).use { it.readText() }
+
+    /** Leitor já descomprimido, para quem não quer o documento inteiro na mão. */
+    fun openStream(url: String, referer: String? = null): Reader {
+        val connection = (URL(url).openConnection() as HttpURLConnection).apply {
+            setRequestProperty("User-Agent", Playback.DEFAULT_USER_AGENT)
+            setRequestProperty("Accept-Encoding", "gzip")
+            referer?.let { setRequestProperty("Referer", it) }
+            connectTimeout = 25_000
+            readTimeout = 60_000
+            instanceFollowRedirects = true
+            // Mesmas raízes embutidas do player: sem elas, feed em Let's
+            // Encrypt não abre em TV Box antigo.
+            if (this is javax.net.ssl.HttpsURLConnection) sslSocketFactory = Confianca.fabrica
+        }
+        val raw = connection.inputStream
+        val stream = if (connection.contentEncoding?.contains("gzip", true) == true) {
+            GZIPInputStream(raw)
+        } else raw
+        return stream.bufferedReader()
+    }
+
+    // MARK: - Cache
+
+    private fun cacheFile(context: Context) = File(context.cacheDir, "epg.json")
+
+    /// Marca o instante da última virada; as telas comparam para saber se
+    /// precisam redesenhar quando um programa termina.
+    @Volatile
+    var clock: Long = System.currentTimeMillis()
+        private set
+
+    fun tick(): Boolean {
+        val now = System.currentTimeMillis()
+        val changed = now - clock > 15_000
+        if (changed) clock = now
+        return changed
+    }
+
+    /// Assinatura do catálogo gravada junto do cache. O nome começa com um
+    /// caractere que nenhum canal usa, então nunca colide com uma chave de canal.
+    private const val SIGNATURE_KEY = "#catalogo"
+
+    /// Subir o "v5" força o cache anterior a ser refeito; o v5 trouxe o guiadetv
+    /// como fonte primária com sinopses.
+    private fun signature(): String =
+        "v6:" + Remote.channels.joinToString("|") { it.name }.hashCode().toString() +
+            ":" + GuiaTabelas.atual.hashCode()
+
+    /// A assinatura mora num arquivo à parte: antes, conferir se o cache
+    /// valia relia os 7 MB do guia inteiro só para achar uma linha.
+    private fun signatureFile(context: Context) = File(context.cacheDir, "epg.sig")
+
+    private fun readSignature(context: Context): String? =
+        runCatching { signatureFile(context).readText() }.getOrNull()?.ifEmpty { null }
+
+    private fun cacheAge(context: Context): Long {
+        val file = cacheFile(context)
+        return if (file.exists()) System.currentTimeMillis() - file.lastModified() else Long.MAX_VALUE
+    }
+
+    /**
+     * O guia guardado, lido em fluxo.
+     *
+     * São ~7 MB de JSON. Ler como texto e montar a árvore inteira custava
+     * dezenas de MB de uma vez — num TV Box de 1 GB o sistema matava o app
+     * logo ao abrir. Em fluxo, só os programas ficam na memória.
+     */
+    private fun readCache(context: Context): Map<String, List<Programme>>? = runCatching {
+        val arquivo = cacheFile(context)
+        if (!arquivo.exists()) return@runCatching null
+        val cutoff = System.currentTimeMillis() - PAST_WINDOW_MS
+        val limite = if (Aparelho.poucaMemoria) System.currentTimeMillis() + LEVE_WINDOW_MS else Long.MAX_VALUE
+        // Gênero e nomes se repetem milhares de vezes: uma cópia só de cada.
+        val iguais = HashMap<String, String>()
+        fun unico(v: String) = iguais.getOrPut(v) { v }
+        val out = HashMap<String, List<Programme>>()
+        android.util.JsonReader(arquivo.bufferedReader()).use { r ->
+            r.beginObject()
+            while (r.hasNext()) {
+                val name = r.nextName()
+                if (name == SIGNATURE_KEY) { r.skipValue(); continue }
+                val lista = ArrayList<Programme>()
+                r.beginArray()
+                while (r.hasNext()) {
+                    var t = ""; var c = ""; var ini = 0L; var fim = 0L
+                    var p: String? = null; var n: String? = null; var y: String? = null; var d: String? = null
+                    val atores = ArrayList<String>(0)
+                    r.beginObject()
+                    while (r.hasNext()) {
+                        when (r.nextName()) {
+                            "t" -> t = r.nextString()
+                            "c" -> c = unico(r.nextString())
+                            "s" -> ini = r.nextLong()
+                            "e" -> fim = r.nextLong()
+                            "p" -> p = r.nextString().ifEmpty { null }
+                            "n" -> n = r.nextString().ifEmpty { null }
+                            "y" -> y = r.nextString().ifEmpty { null }
+                            "d" -> d = r.nextString().ifEmpty { null }
+                            "a" -> { r.beginArray(); while (r.hasNext()) atores += unico(r.nextString()); r.endArray() }
+                            else -> r.skipValue()
+                        }
+                    }
+                    r.endObject()
+                    if (fim > cutoff && ini < limite) {
+                        lista += Programme(t, c, ini, fim, p, n, y, d, if (atores.isEmpty()) emptyList() else atores)
+                    }
+                }
+                r.endArray()
+                if (lista.isNotEmpty()) out[name] = lista
+            }
+            r.endObject()
+        }
+        out.takeIf { it.isNotEmpty() }
+    }.getOrNull()
+
+    private fun writeCache(context: Context, data: Map<String, List<Programme>>) = runCatching {
+        val destino = cacheFile(context)
+        val temporario = File(destino.path + ".novo")
+        android.util.JsonWriter(temporario.bufferedWriter()).use { w ->
+            w.beginObject()
+            for ((name, list) in data) {
+                w.name(name).beginArray()
+                for (programme in list) {
+                    w.beginObject()
+                    w.name("t").value(programme.title)
+                    w.name("c").value(programme.category)
+                    w.name("s").value(programme.start)
+                    w.name("e").value(programme.stop)
+                    programme.poster?.let { w.name("p").value(it) }
+                    programme.episode?.let { w.name("n").value(it) }
+                    programme.year?.let { w.name("y").value(it) }
+                    programme.description?.let { w.name("d").value(it) }
+                    if (programme.cast.isNotEmpty()) {
+                        w.name("a").beginArray(); programme.cast.forEach { w.value(it) }; w.endArray()
+                    }
+                    w.endObject()
+                }
+                w.endArray()
+            }
+            w.endObject()
+        }
+        temporario.renameTo(destino)
+        signatureFile(context).writeText(signature())
+    }
+}

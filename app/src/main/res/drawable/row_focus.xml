@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Três estados legíveis do outro lado da sala: focado leva contorno ciano
+     cheio, o canal sintonizado leva um realce discreto, o resto nada. Um
+     preenchimento translúcido sozinho não se enxerga por cima do vídeo. -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_focused="true">
+        <shape android:shape="rectangle">
+            <solid android:color="#26FFFFFF" />
+            <stroke android:width="3dp" android:color="@color/accent" />
+            <corners android:radius="14dp" />
+        </shape>
+    </item>
+    <item android:state_selected="true">
+        <shape android:shape="rectangle">
+            <solid android:color="@color/surface_raised" />
+            <stroke android:width="2dp" android:color="@color/accent_dim" />
+            <corners android:radius="14dp" />
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#00000000" />
+            <corners android:radius="14dp" />
+        </shape>
+    </item>
+</selector>

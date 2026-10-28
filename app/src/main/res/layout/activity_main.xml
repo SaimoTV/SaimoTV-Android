@@ -1,0 +1,780 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Vídeo em tela cheia; tudo o mais é sobreposição que aparece por poucos
+     segundos. Nada fica permanentemente por cima da imagem. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/surface">
+
+    <androidx.media3.ui.PlayerView
+        android:id="@+id/player"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:resize_mode="fit"
+        app:use_controller="false" />
+
+    <!-- Multi tela: a segunda imagem, na metade direita. Só tem player ligado
+         enquanto a multi tela está aberta; as larguras saem do código. -->
+    <androidx.media3.ui.PlayerView
+        android:id="@+id/player2"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_gravity="end"
+        android:visibility="gone"
+        app:resize_mode="fit"
+        app:use_controller="false" />
+
+    <!-- Multi tela: contorno de cada metade (o aceso é a que tem som), o nome
+         do canal de cada uma e a dica das teclas. -->
+    <FrameLayout
+        android:id="@+id/multiTela"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:baselineAligned="false"
+            android:orientation="horizontal">
+
+            <FrameLayout
+                android:id="@+id/multiTela1"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:background="@drawable/bg_tela_ativa">
+
+                <!-- Logo e nome do canal desta metade. Sem logo, a inicial. -->
+                <LinearLayout
+                    android:id="@+id/multiRotulo1"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="top|start"
+                    android:layout_margin="18dp"
+                    android:background="@drawable/bg_card"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingStart="8dp"
+                    android:paddingTop="6dp"
+                    android:paddingEnd="14dp"
+                    android:paddingBottom="6dp">
+
+                    <FrameLayout
+                        android:layout_width="36dp"
+                        android:layout_height="36dp"
+                        android:layout_marginEnd="10dp"
+                        android:background="@drawable/bg_logo">
+
+                        <TextView
+                            android:id="@+id/multiInicial1"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:fontFamily="sans-serif-medium"
+                            android:gravity="center"
+                            android:textColor="@color/text_secondary"
+                            android:textSize="16sp" />
+
+                        <ImageView
+                            android:id="@+id/multiLogo1"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:contentDescription="@null"
+                            android:padding="4dp"
+                            android:scaleType="fitCenter" />
+                    </FrameLayout>
+
+                    <TextView
+                        android:id="@+id/multiNome1"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:ellipsize="end"
+                        android:fontFamily="sans-serif-medium"
+                        android:maxLines="1"
+                        android:textColor="@color/text_primary"
+                        android:textSize="16sp" />
+                </LinearLayout>
+            </FrameLayout>
+
+            <FrameLayout
+                android:id="@+id/multiTela2"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:background="@drawable/bg_tela_inativa">
+
+                <!-- Logo e nome do canal desta metade. Sem logo, a inicial. -->
+                <LinearLayout
+                    android:id="@+id/multiRotulo2"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="top|start"
+                    android:layout_margin="18dp"
+                    android:background="@drawable/bg_card"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingStart="8dp"
+                    android:paddingTop="6dp"
+                    android:paddingEnd="14dp"
+                    android:paddingBottom="6dp"
+                    android:visibility="gone">
+
+                    <FrameLayout
+                        android:layout_width="36dp"
+                        android:layout_height="36dp"
+                        android:layout_marginEnd="10dp"
+                        android:background="@drawable/bg_logo">
+
+                        <TextView
+                            android:id="@+id/multiInicial2"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:fontFamily="sans-serif-medium"
+                            android:gravity="center"
+                            android:textColor="@color/text_secondary"
+                            android:textSize="16sp" />
+
+                        <ImageView
+                            android:id="@+id/multiLogo2"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:contentDescription="@null"
+                            android:padding="4dp"
+                            android:scaleType="fitCenter" />
+                    </FrameLayout>
+
+                    <TextView
+                        android:id="@+id/multiNome2"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:ellipsize="end"
+                        android:fontFamily="sans-serif-medium"
+                        android:maxLines="1"
+                        android:textColor="@color/text_primary"
+                        android:textSize="16sp" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/multiAviso2"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:layout_margin="24dp"
+                    android:gravity="center"
+                    android:text="@string/multi_tela_escolha"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="20sp" />
+            </FrameLayout>
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/multiDica"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|center_horizontal"
+            android:layout_marginBottom="28dp"
+            android:background="@drawable/bg_card"
+            android:paddingStart="18dp"
+            android:paddingTop="8dp"
+            android:paddingEnd="18dp"
+            android:paddingBottom="8dp"
+            android:text="@string/multi_tela_dica"
+            android:textColor="@color/text_secondary"
+            android:textSize="15sp" />
+    </FrameLayout>
+
+    <!-- Rádio tocando: o painel cobre a tela que seria preta. -->
+    <include layout="@layout/painel_radio" />
+
+    <!-- Cartão do que está no ar: canal, programa, quanto já passou. -->
+    <LinearLayout
+        android:id="@+id/banner"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:background="@drawable/bg_bottom_scrim"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="56dp"
+        android:paddingTop="70dp"
+        android:paddingEnd="56dp"
+        android:paddingBottom="44dp">
+
+        <FrameLayout
+            android:layout_width="76dp"
+            android:layout_height="76dp"
+            android:layout_marginEnd="22dp"
+            android:background="@drawable/bg_logo">
+
+            <ImageView
+                android:id="@+id/bannerLogo"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:contentDescription="@null"
+                android:padding="10dp"
+                android:scaleType="fitCenter" />
+        </FrameLayout>
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/bannerNumber"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="14dp"
+                    android:fontFamily="sans-serif-medium"
+                    android:textColor="@color/accent"
+                    android:textSize="26sp" />
+
+                <TextView
+                    android:id="@+id/bannerChannel"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:ellipsize="end"
+                    android:fontFamily="sans-serif-medium"
+                    android:maxLines="1"
+                    android:textColor="@color/text_primary"
+                    android:textSize="28sp" />
+
+                <TextView
+                    android:id="@+id/bannerResolution"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="16dp"
+                    android:background="@drawable/bg_chip"
+                    android:fontFamily="sans-serif-medium"
+                    android:paddingStart="14dp"
+                    android:paddingTop="4dp"
+                    android:paddingEnd="14dp"
+                    android:paddingBottom="4dp"
+                    android:textColor="@color/accent"
+                    android:textSize="15sp"
+                    android:visibility="gone" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/bannerProgramme"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="@color/text_primary"
+                android:textSize="21sp" />
+
+            <ProgressBar
+                android:id="@+id/bannerProgress"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="6dp"
+                android:layout_marginTop="12dp"
+                android:max="1000"
+                android:progressDrawable="@drawable/progress_track" />
+
+            <TextView
+                android:id="@+id/bannerSource"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="@color/text_faint"
+                android:textSize="15sp"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/bannerTimes"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="@color/text_secondary"
+                android:textSize="17sp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Com a lista aberta: o que passa agora e a seguir no canal focado,
+         sem precisar sintonizar para descobrir. -->
+    <LinearLayout
+        android:id="@+id/previa"
+        android:layout_width="440dp"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="48dp"
+        android:layout_marginBottom="40dp"
+        android:background="@drawable/bg_modal"
+        android:orientation="vertical"
+        android:padding="22dp"
+        android:visibility="gone">
+        <TextView
+            android:id="@+id/previaCanal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:fontFamily="sans-serif-medium"
+            android:textColor="@color/accent"
+            android:textSize="16sp" />
+        <TextView
+            android:id="@+id/previaAgora"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:ellipsize="end"
+            android:fontFamily="sans-serif-medium"
+            android:maxLines="2"
+            android:textColor="@color/text_primary"
+            android:textSize="22sp" />
+        <TextView
+            android:id="@+id/previaDetalhe"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:ellipsize="end"
+            android:maxLines="3"
+            android:textColor="@color/text_secondary"
+            android:textSize="16sp" />
+    </LinearLayout>
+    <!-- Estado do canal: ligando, reconectando, número digitado. -->
+    <TextView
+        android:id="@+id/status"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:background="@drawable/bg_card"
+        android:fontFamily="sans-serif-medium"
+        android:paddingStart="46dp"
+        android:paddingTop="28dp"
+        android:paddingEnd="46dp"
+        android:paddingBottom="28dp"
+        android:textColor="@color/text_primary"
+        android:textSize="28sp"
+        android:visibility="gone" />
+
+
+    <!-- Lista de canais: entra pela esquerda, navegada no D-pad. -->
+    <LinearLayout
+        android:id="@+id/listPanel"
+        android:layout_width="430dp"
+        android:layout_height="match_parent"
+        android:layout_gravity="start"
+        android:background="@drawable/bg_panel"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <!-- O cabeçalho é focável e abre o teclado na tela: há controle sem
+             teclas numéricas, e o D-pad com OK é o que todo controle tem. -->
+        <LinearLayout
+            android:id="@+id/listHeader"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:layout_marginTop="20dp"
+            android:layout_marginEnd="20dp"
+            android:background="@drawable/row_focus"
+            android:focusable="true"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="16dp"
+            android:paddingTop="12dp"
+            android:paddingEnd="16dp"
+            android:paddingBottom="12dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:fontFamily="sans-serif-medium"
+                android:text="@string/channels"
+                android:textColor="@color/text_primary"
+                android:textSize="26sp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="12dp"
+                android:fontFamily="sans-serif-medium"
+                android:text="@string/keypad"
+                android:textColor="@color/accent"
+                android:textSize="18sp" />
+
+            <TextView
+                android:id="@+id/listCount"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@color/text_secondary"
+                android:textSize="17sp" />
+        </LinearLayout>
+
+        <!-- Entrada para filmes e séries: uma linha só, logo acima dos canais,
+             onde o olho já está. -->
+        <TextView
+            android:id="@+id/vodEntrada"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:layout_marginTop="8dp"
+            android:layout_marginEnd="20dp"
+            android:background="@drawable/row_focus"
+            android:drawablePadding="14dp"
+            android:focusable="true"
+            android:fontFamily="sans-serif-medium"
+            android:paddingStart="16dp"
+            android:paddingTop="14dp"
+            android:paddingEnd="16dp"
+            android:paddingBottom="14dp"
+            android:text="@string/vod"
+            android:textColor="@color/accent"
+            android:textSize="20sp" />
+
+        <!-- Seções: pular direto para Esportes, Notícias... sem descer a lista. -->
+        <HorizontalScrollView
+            android:id="@+id/listSecoes"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:layout_marginTop="8dp"
+            android:layout_marginEnd="20dp"
+            android:clipToPadding="false"
+            android:scrollbars="none">
+            <LinearLayout
+                android:id="@+id/listSecoesItens"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal" />
+        </HorizontalScrollView>
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/channels"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:clipToPadding="false"
+            android:paddingStart="16dp"
+            android:paddingTop="6dp"
+            android:paddingEnd="20dp"
+            android:paddingBottom="16dp" />
+
+        <TextView
+            android:id="@+id/listLegenda"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingStart="30dp"
+            android:paddingTop="10dp"
+            android:paddingEnd="30dp"
+            android:paddingBottom="26dp"
+            android:text="@string/list_legend"
+            android:textColor="@color/text_faint"
+            android:textSize="15sp" />
+    </LinearLayout>
+
+    <!-- Teclado na tela, para controle sem teclas numéricas. -->
+    <FrameLayout
+        android:id="@+id/numpad"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#E6000000"
+        android:clickable="true"
+        android:focusable="false"
+        android:visibility="gone">
+
+        <ScrollView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:overScrollMode="never"
+            android:scrollbars="none">
+
+            <LinearLayout
+                android:id="@+id/numpadContainer"
+                android:layout_width="320dp"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:background="@drawable/bg_modal"
+                android:clickable="true"
+                android:focusable="false"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:id="@+id/numpadValue"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="10dp"
+                    android:fontFamily="sans-serif-medium"
+                    android:gravity="center"
+                    android:minHeight="40dp"
+                    android:textColor="@color/accent"
+                    android:textSize="30sp" />
+
+                <!-- Linha 1: 1, 2, 3 -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/pad1"
+                        android:layout_width="0dp"
+                        android:layout_height="52dp"
+                        android:layout_weight="1"
+                        android:layout_margin="3dp"
+                        android:background="@drawable/pad_button_bg"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:fontFamily="sans-serif-medium"
+                        android:gravity="center"
+                        android:text="1"
+                        android:textColor="@color/text_primary"
+                        android:textSize="22sp"
+                        android:nextFocusLeft="@id/pad1"
+                        android:nextFocusUp="@id/pad1"
+                        android:nextFocusRight="@id/pad2"
+                        android:nextFocusDown="@id/pad4" />
+
+                    <TextView
+                        android:id="@+id/pad2"
+                        android:layout_width="0dp"
+                        android:layout_height="52dp"
+                        android:layout_weight="1"
+                        android:layout_margin="3dp"
+                        android:background="@drawable/pad_button_bg"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:fontFamily="sans-serif-medium"
+                        android:gravity="center"
+                        android:text="2"
+                        android:textColor="@color/text_primary"
+                        android:textSize="22sp"
+                        android:nextFocusLeft="@id/pad1"
+                        android:nextFocusUp="@id/pad2"
+                        android:nextFocusRight="@id/pad3"
+                        android:nextFocusDown="@id/pad5" />
+
+                    <TextView
+                        android:id="@+id/pad3"
+                        android:layout_width="0dp"
+                        android:layout_height="52dp"
+                        android:layout_weight="1"
+                        android:layout_margin="3dp"
+                        android:background="@drawable/pad_button_bg"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:fontFamily="sans-serif-medium"
+                        android:gravity="center"
+                        android:text="3"
+                        android:textColor="@color/text_primary"
+                        android:textSize="22sp"
+                        android:nextFocusLeft="@id/pad2"
+                        android:nextFocusUp="@id/pad3"
+                        android:nextFocusRight="@id/pad3"
+                        android:nextFocusDown="@id/pad6" />
+                </LinearLayout>
+
+                <!-- Linha 2: 4, 5, 6 -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/pad4"
+                        android:layout_width="0dp"
+                        android:layout_height="52dp"
+                        android:layout_weight="1"
+                        android:layout_margin="3dp"
+                        android:background="@drawable/pad_button_bg"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:fontFamily="sans-serif-medium"
+                        android:gravity="center"
+                        android:text="4"
+                        android:textColor="@color/text_primary"
+                        android:textSize="22sp"
+                        android:nextFocusLeft="@id/pad4"
+                        android:nextFocusUp="@id/pad1"
+                        android:nextFocusRight="@id/pad5"
+                        android:nextFocusDown="@id/pad7" />
+
+                    <TextView
+                        android:id="@+id/pad5"
+                        android:layout_width="0dp"
+                        android:layout_height="52dp"
+                        android:layout_weight="1"
+                        android:layout_margin="3dp"
+                        android:background="@drawable/pad_button_bg"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:fontFamily="sans-serif-medium"
+                        android:gravity="center"
+                        android:text="5"
+                        android:textColor="@color/text_primary"
+                        android:textSize="22sp"
+                        android:nextFocusLeft="@id/pad4"
+                        android:nextFocusUp="@id/pad2"
+                        android:nextFocusRight="@id/pad6"
+                        android:nextFocusDown="@id/pad8" />
+
+                    <TextView
+                        android:id="@+id/pad6"
+                        android:layout_width="0dp"
+                        android:layout_height="52dp"
+                        android:layout_weight="1"
+                        android:layout_margin="3dp"
+                        android:background="@drawable/pad_button_bg"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:fontFamily="sans-serif-medium"
+                        android:gravity="center"
+                        android:text="6"
+                        android:textColor="@color/text_primary"
+                        android:textSize="22sp"
+                        android:nextFocusLeft="@id/pad5"
+                        android:nextFocusUp="@id/pad3"
+                        android:nextFocusRight="@id/pad6"
+                        android:nextFocusDown="@id/pad9" />
+                </LinearLayout>
+
+                <!-- Linha 3: 7, 8, 9 -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/pad7"
+                        android:layout_width="0dp"
+                        android:layout_height="52dp"
+                        android:layout_weight="1"
+                        android:layout_margin="3dp"
+                        android:background="@drawable/pad_button_bg"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:fontFamily="sans-serif-medium"
+                        android:gravity="center"
+                        android:text="7"
+                        android:textColor="@color/text_primary"
+                        android:textSize="22sp"
+                        android:nextFocusLeft="@id/pad7"
+                        android:nextFocusUp="@id/pad4"
+                        android:nextFocusRight="@id/pad8"
+                        android:nextFocusDown="@id/padDel" />
+
+                    <TextView
+                        android:id="@+id/pad8"
+                        android:layout_width="0dp"
+                        android:layout_height="52dp"
+                        android:layout_weight="1"
+                        android:layout_margin="3dp"
+                        android:background="@drawable/pad_button_bg"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:fontFamily="sans-serif-medium"
+                        android:gravity="center"
+                        android:text="8"
+                        android:textColor="@color/text_primary"
+                        android:textSize="22sp"
+                        android:nextFocusLeft="@id/pad7"
+                        android:nextFocusUp="@id/pad5"
+                        android:nextFocusRight="@id/pad9"
+                        android:nextFocusDown="@id/pad0" />
+
+                    <TextView
+                        android:id="@+id/pad9"
+                        android:layout_width="0dp"
+                        android:layout_height="52dp"
+                        android:layout_weight="1"
+                        android:layout_margin="3dp"
+                        android:background="@drawable/pad_button_bg"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:fontFamily="sans-serif-medium"
+                        android:gravity="center"
+                        android:text="9"
+                        android:textColor="@color/text_primary"
+                        android:textSize="22sp"
+                        android:nextFocusLeft="@id/pad8"
+                        android:nextFocusUp="@id/pad6"
+                        android:nextFocusRight="@id/pad9"
+                        android:nextFocusDown="@id/padOk" />
+                </LinearLayout>
+
+                <!-- Linha 4: Apagar, 0, Ir -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/padDel"
+                        android:layout_width="0dp"
+                        android:layout_height="52dp"
+                        android:layout_weight="1"
+                        android:layout_margin="3dp"
+                        android:background="@drawable/pad_button_bg"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:fontFamily="sans-serif-medium"
+                        android:gravity="center"
+                        android:text="@string/pad_delete"
+                        android:textAllCaps="true"
+                        android:textColor="@color/text_primary"
+                        android:textSize="13sp"
+                        android:nextFocusLeft="@id/padDel"
+                        android:nextFocusUp="@id/pad7"
+                        android:nextFocusRight="@id/pad0"
+                        android:nextFocusDown="@id/padDel" />
+
+                    <TextView
+                        android:id="@+id/pad0"
+                        android:layout_width="0dp"
+                        android:layout_height="52dp"
+                        android:layout_weight="1"
+                        android:layout_margin="3dp"
+                        android:background="@drawable/pad_button_bg"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:fontFamily="sans-serif-medium"
+                        android:gravity="center"
+                        android:text="0"
+                        android:textColor="@color/text_primary"
+                        android:textSize="22sp"
+                        android:nextFocusLeft="@id/padDel"
+                        android:nextFocusUp="@id/pad8"
+                        android:nextFocusRight="@id/padOk"
+                        android:nextFocusDown="@id/pad0" />
+
+                    <TextView
+                        android:id="@+id/padOk"
+                        android:layout_width="0dp"
+                        android:layout_height="52dp"
+                        android:layout_weight="1"
+                        android:layout_margin="3dp"
+                        android:background="@drawable/pad_button_bg"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:fontFamily="sans-serif-medium"
+                        android:gravity="center"
+                        android:text="@string/pad_ok"
+                        android:textAllCaps="true"
+                        android:textColor="@color/accent"
+                        android:textSize="15sp"
+                        android:nextFocusLeft="@id/pad0"
+                        android:nextFocusUp="@id/pad9"
+                        android:nextFocusRight="@id/padOk"
+                        android:nextFocusDown="@id/padOk" />
+                </LinearLayout>
+            </LinearLayout>
+        </ScrollView>
+    </FrameLayout>
+</FrameLayout>

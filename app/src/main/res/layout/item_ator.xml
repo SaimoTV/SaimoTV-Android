@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Uma pessoa do elenco: foto redonda, nome e personagem. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="118dp"
+    android:layout_height="wrap_content"
+    android:layout_marginEnd="6dp"
+    android:background="@drawable/row_focus"
+    android:focusable="true"
+    android:gravity="center_horizontal"
+    android:orientation="vertical"
+    android:paddingStart="4dp"
+    android:paddingTop="8dp"
+    android:paddingEnd="4dp"
+    android:paddingBottom="8dp">
+
+    <!-- duplicateParentState aqui também: sem ele o anel, que está dentro,
+         nunca recebia o "focado" do cartão e a foto não mostrava onde se está. -->
+    <FrameLayout
+        android:layout_width="84dp"
+        android:layout_height="84dp"
+        android:duplicateParentState="true">
+
+        <ImageView
+            android:id="@+id/atorFoto"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/sem_foto"
+            android:contentDescription="@null"
+            android:scaleType="centerCrop" />
+
+        <TextView
+            android:id="@+id/atorInicial"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:fontFamily="sans-serif-medium"
+            android:gravity="center"
+            android:textColor="@color/text_secondary"
+            android:textSize="30sp" />
+
+        <View
+            android:id="@+id/atorAnel"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/foco_ator"
+            android:duplicateParentState="true" />
+    </FrameLayout>
+
+    <TextView
+        android:id="@+id/atorNome"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="7dp"
+        android:ellipsize="end"
+        android:gravity="center"
+        android:maxLines="1"
+        android:textColor="@color/text_primary"
+        android:textSize="13sp" />
+
+    <TextView
+        android:id="@+id/atorPapel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:ellipsize="end"
+        android:gravity="center"
+        android:maxLines="1"
+        android:textColor="@color/text_faint"
+        android:textSize="11sp" />
+</LinearLayout>

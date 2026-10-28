@@ -1,0 +1,8 @@
+# Fixture de teste: canais restritos inventados.
+canal: Restrito Um
+categoria: Adulto
+fonte: https://exemplo.test/r1/live.m3u8
+
+canal: Restrito Dois
+categoria: Adulto
+fonte: https://exemplo.test/r2/live.m3u8

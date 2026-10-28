@@ -1,0 +1,15 @@
+# Fixture de teste do guia.txt
+
+meuguia	Canal Um	AAA
+meuguia	canal-brasil	CBR
+meuguia	Canal Brasil	CBR
+guiadetv	canal um	canal-um
+guiadetv	canal dois	https://guia.exemplo.test/canal/dois
+alias	adult swim	trutv
+alias	sportv 2	sportv2
+feed	-	https://feed1.exemplo.test/epg.xml
+feed	-	https://feed2.exemplo.test/epg.xml
+pluto	-	https://pluto.exemplo.test/br.xml
+linha quebrada sem tab
+meuguia	sem codigo	
+feed	-	ftp://nao.http/epg.xml

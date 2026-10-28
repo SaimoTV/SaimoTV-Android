@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <!-- Minhas listas: só quando a TV não tem seletor de arquivos, para listar os
+         .m3u da pasta Download. Pedida na hora, nunca na abertura do app. -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <!-- Instalar a atualização baixada; o sistema ainda pede a confirmação. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- "Continuar assistindo" e a fileira do Saimo na tela inicial da TV. -->
+    <uses-permission android:name="com.android.providers.tv.permission.WRITE_EPG_DATA" />
+
+    <!-- Televisão primeiro: sem toque, tudo pelo controle. -->
+    <uses-feature android:name="android.software.leanback" android:required="true" />
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+
+    <!-- Minhas listas: saber se a TV tem um seletor de arquivos de verdade. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.OPEN_DOCUMENT" />
+            <category android:name="android.intent.category.OPENABLE" />
+            <data android:mimeType="*/*" />
+        </intent>
+    </queries>
+
+    <application
+        android:name=".SaimoApp"
+        android:allowBackup="true"
+        android:banner="@drawable/banner"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:label="@string/app_name"
+        android:largeHeap="true"
+        android:enableOnBackInvokedCallback="false"
+        tools:targetApi="33"
+        android:theme="@style/Theme.Saimo"
+        android:usesCleartextTraffic="true">
+        <!-- enableOnBackInvokedCallback="false": com o voltar preditivo (padrão
+             a partir do targetSdk 36) o Android para de entregar KEYCODE_BACK
+             ao onKeyDown e o onKeyUp deixa de chamar onBackPressed. Num tablet
+             com Android 16 o botão Voltar da barra de toque (que simula a
+             tecla, ver Vr.voltar) não fazia nada, e o voltar do sistema
+             fechava o ao vivo sem passar pela lista ou pela multi tela. -->
+        <!-- Meta Quest / Meta VR Glasses: o app se declara compatível (Vr.kt
+             liga os controles de toque lá). TV Box ignora. -->
+        <meta-data
+            android:name="com.oculus.supportedDevices"
+            android:value="quest2|questpro|quest3|quest3s" />
+        <meta-data
+            android:name="android.app.default_searchable"
+            android:value=".EscolhaActivity" />
+
+        <!-- A abertura: TV ao vivo ou filmes e séries. É ela que o sistema
+             abre; os canais deixaram de ser a primeira tela. -->
+        <activity
+            android:name=".EscolhaActivity"
+            android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|smallestScreenSize|uiMode"
+            android:exported="true"
+            android:screenOrientation="landscape"
+            android:theme="@style/Theme.Saimo.Abertura">
+            <!-- Janela no Horizon OS e demais óculos; TV Box ignora. -->
+            <layout android:defaultWidth="1024dp" android:defaultHeight="640dp"
+                android:minWidth="720dp" android:minHeight="405dp" />
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+            <!-- Links saimo:// da tela inicial da TV e da busca do sistema. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="saimo" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEARCH" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <meta-data
+                android:name="android.app.searchable"
+                android:resource="@xml/busca" />
+        </activity>
+        <activity
+            android:name=".PlayerActivity"
+            android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|smallestScreenSize|uiMode"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:theme="@style/Theme.Saimo.Video">
+            <!-- Janela no Horizon OS e demais óculos; TV Box ignora. -->
+            <layout android:defaultWidth="1024dp" android:defaultHeight="640dp"
+                android:minWidth="720dp" android:minHeight="405dp" />
+        </activity>
+        <activity
+            android:name=".AjustesActivity"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:theme="@style/Theme.Saimo">
+            <!-- Janela no Horizon OS e demais óculos; TV Box ignora. -->
+            <layout android:defaultWidth="1024dp" android:defaultHeight="640dp"
+                android:minWidth="720dp" android:minHeight="405dp" />
+        </activity>
+        <provider
+            android:name=".BuscaDoSistema"
+            android:authorities="br.com.saimo.tv.busca"
+            android:exported="true" />
+        <activity
+            android:name=".MainActivity"
+            android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|smallestScreenSize|uiMode"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:screenOrientation="landscape"
+            android:theme="@style/Theme.Saimo.Video">
+            <!-- Janela no Horizon OS e demais óculos; TV Box ignora. -->
+            <layout android:defaultWidth="1024dp" android:defaultHeight="640dp"
+                android:minWidth="720dp" android:minHeight="405dp" />
+        </activity>
+        <activity
+            android:name=".GradeActivity"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:theme="@style/Theme.Saimo">
+            <!-- Janela no Horizon OS e demais óculos; TV Box ignora. -->
+            <layout android:defaultWidth="1024dp" android:defaultHeight="640dp"
+                android:minWidth="720dp" android:minHeight="405dp" />
+        </activity>
+        <activity
+            android:name=".PaginaActivity"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:theme="@style/Theme.Saimo">
+            <!-- Janela no Horizon OS e demais óculos; TV Box ignora. -->
+            <layout android:defaultWidth="1024dp" android:defaultHeight="640dp"
+                android:minWidth="720dp" android:minHeight="405dp" />
+        </activity>
+        <activity
+            android:name=".BuscaActivity"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:windowSoftInputMode="stateAlwaysHidden"
+            android:theme="@style/Theme.Saimo">
+            <!-- Janela no Horizon OS e demais óculos; TV Box ignora. -->
+            <layout android:defaultWidth="1024dp" android:defaultHeight="640dp"
+                android:minWidth="720dp" android:minHeight="405dp" />
+        </activity>
+        <activity
+            android:name=".FichaActivity"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:theme="@style/Theme.Saimo">
+            <!-- Janela no Horizon OS e demais óculos; TV Box ignora. -->
+            <layout android:defaultWidth="1024dp" android:defaultHeight="640dp"
+                android:minWidth="720dp" android:minHeight="405dp" />
+        </activity>
+        <activity
+            android:name=".AtorActivity"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:theme="@style/Theme.Saimo">
+            <!-- Janela no Horizon OS e demais óculos; TV Box ignora. -->
+            <layout android:defaultWidth="1024dp" android:defaultHeight="640dp"
+                android:minWidth="720dp" android:minHeight="405dp" />
+        </activity>
+        <!-- O sistema responde aqui quando a instalação precisa da confirmação
+             de quem está assistindo. -->
+        <receiver
+            android:name=".InstaladorReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="br.com.saimo.tv.INSTALADO" />
+            </intent-filter>
+        </receiver>
+
+        <activity
+            android:name=".GuideActivity"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:theme="@style/Theme.Saimo">
+            <!-- Janela no Horizon OS e demais óculos; TV Box ignora. -->
+            <layout android:defaultWidth="1024dp" android:defaultHeight="640dp"
+                android:minWidth="720dp" android:minHeight="405dp" />
+        </activity>
+        <activity android:name=".EventosActivity" />
+    
+        <activity android:name=".OnDemandActivity" android:exported="false" android:launchMode="singleTop" />
+        <activity android:name=".SemListaActivity" android:exported="false" />
+        <activity android:name=".RadiosActivity" android:exported="false" android:launchMode="singleTop" />
+</application>
+</manifest>
