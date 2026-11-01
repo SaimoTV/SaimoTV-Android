@@ -186,6 +186,55 @@ object Playback {
     }
 
     fun mediaSource(context: Context, source: Source): MediaSource {
+        if (source.isCurti) {
+            val sid = CurtiTV404.extrairStreamId(source.url)
+            val sessao = kotlinx.coroutines.runBlocking {
+                CurtiTV404.gateway(context, sid)
+            }
+            val cab = linkedMapOf<String, String>(
+                "Accept" to "*/*",
+                "Referer" to "${CurtiTV404.BASE}/site.php"
+            )
+            CurtiTV404.cookies(context)?.let { cab["Cookie"] = it }
+            val curtiUpstream: DataSource.Factory = OkHttpDataSource.Factory(client)
+                .setUserAgent(source.userAgent ?: DEFAULT_USER_AGENT)
+                .apply { setDefaultRequestProperties(cab) }
+            val curtiHttp: DataSource.Factory = ResolvingDataSource.Factory(curtiUpstream) { dataSpec ->
+                dataSpec
+            }
+            val playUri = if (sessao != null) {
+                Uri.parse(sessao.gatewayUrl)
+            } else if (source.url.startsWith("http", ignoreCase = true)) {
+                Uri.parse(source.url)
+            } else {
+                Uri.parse("")
+            }
+            val itemBuilder = MediaItem.Builder().setUri(playUri)
+            val zeroModo = Preferencias.zeroDelay
+            if (zeroModo != "off") {
+                val liveConfig = when (zeroModo) {
+                    "agressivo" -> MediaItem.LiveConfiguration.Builder()
+                        .setTargetOffsetMs(2500)
+                        .setMinOffsetMs(1500)
+                        .setMaxOffsetMs(6000)
+                        .setMaxPlaybackSpeed(1.08f)
+                        .setMinPlaybackSpeed(1.0f)
+                        .build()
+                    else -> MediaItem.LiveConfiguration.Builder()
+                        .setTargetOffsetMs(5000)
+                        .setMinOffsetMs(3000)
+                        .setMaxOffsetMs(12000)
+                        .setMaxPlaybackSpeed(1.04f)
+                        .setMinPlaybackSpeed(1.0f)
+                        .build()
+                }
+                itemBuilder.setLiveConfiguration(liveConfig)
+            }
+            return HlsMediaSource.Factory(curtiHttp)
+                .setAllowChunklessPreparation(true)
+                .createMediaSource(itemBuilder.build())
+        }
+
         val embedPlayer = runCatching {
             Uri.parse(source.url).host?.equals("embedplayer2.xyz", ignoreCase = true) == true
         }.getOrDefault(false)

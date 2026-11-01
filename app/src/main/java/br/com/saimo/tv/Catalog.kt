@@ -15,10 +15,14 @@ data class Source(
     val nome: String? = null,
 ) {
     val isDash: Boolean get() = url.contains(".mpd", ignoreCase = true)
+    val isCurti: Boolean get() =
+        url.startsWith("curtitv://", ignoreCase = true) ||
+            url.contains("/api/curtitv", ignoreCase = true)
     val isHls: Boolean get() =
         url.contains(".m3u8", ignoreCase = true) ||
             url.substringBefore('?').endsWith(".txt", ignoreCase = true) ||
-            url.contains("dadinhodetapioca.fun", ignoreCase = true)
+            url.contains("dadinhodetapioca.fun", ignoreCase = true) ||
+            isCurti
 }
 
 data class Channel(

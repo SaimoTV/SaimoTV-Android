@@ -669,6 +669,15 @@ override fun onVideoSizeChanged(videoSize: VideoSize) {
             // assistindo do lugar sem motivo nenhum.
             val ficouParaTras = error.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW
 
+            val currentSource = channel.sources.getOrNull(sourceIndex)
+            if (currentSource?.isCurti == true && retomadas < RETOMADAS_MAX) {
+                CurtiTV404.invalidar(this@MainActivity)
+                retomadas++
+                showStatus(getString(R.string.reconnecting))
+                play(current, sourceIndex, apósFalha = true)
+                return
+            }
+
             if ((viva || ficouParaTras) && retomadas < RETOMADAS_MAX) {
                 retomadas++
                 showStatus(getString(R.string.reconnecting))
