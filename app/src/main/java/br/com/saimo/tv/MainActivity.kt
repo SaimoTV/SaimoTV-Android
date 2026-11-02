@@ -670,7 +670,9 @@ override fun onVideoSizeChanged(videoSize: VideoSize) {
             val ficouParaTras = error.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW
 
             val currentSource = channel.sources.getOrNull(sourceIndex)
-            if (currentSource?.isCurti == true && retomadas < RETOMADAS_MAX) {
+            // Só insiste se já tinha imagem (token vencido). Fonte que nem abriu desce
+            // para a seguinte na hora: com o gateway fora, repetir só atrasava o canal.
+            if (currentSource?.isCurti == true && viva && retomadas < RETOMADAS_MAX) {
                 CurtiTV404.invalidar(this@MainActivity)
                 retomadas++
                 showStatus(getString(R.string.reconnecting))

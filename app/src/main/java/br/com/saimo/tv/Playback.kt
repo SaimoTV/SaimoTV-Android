@@ -188,26 +188,31 @@ object Playback {
     fun mediaSource(context: Context, source: Source): MediaSource {
         if (source.isCurti) {
             val sid = CurtiTV404.extrairStreamId(source.url)
-            val sessao = kotlinx.coroutines.runBlocking {
-                CurtiTV404.gateway(context, sid)
-            }
             val cab = linkedMapOf<String, String>(
                 "Accept" to "*/*",
                 "Referer" to "${CurtiTV404.BASE}/site.php"
             )
-            CurtiTV404.cookies(context)?.let { cab["Cookie"] = it }
             val curtiUpstream: DataSource.Factory = OkHttpDataSource.Factory(client)
                 .setUserAgent(source.userAgent ?: DEFAULT_USER_AGENT)
                 .apply { setDefaultRequestProperties(cab) }
+            // O token vem da rede: aqui roda na thread do carregador do player.
+            // Pedido antes, em mediaSource(), ele travava a tela a cada canal.
             val curtiHttp: DataSource.Factory = ResolvingDataSource.Factory(curtiUpstream) { dataSpec ->
-                dataSpec
+                val aberto = if (dataSpec.uri.scheme.equals("curtitv", ignoreCase = true)) {
+                    val sessao = kotlinx.coroutines.runBlocking { CurtiTV404.gateway(context, sid) }
+                        ?: throw java.io.IOException("CurtiTV sem token")
+                    dataSpec.withUri(Uri.parse(sessao.gatewayUrl))
+                } else {
+                    dataSpec
+                }
+                CurtiTV404.cookies(context)?.let {
+                    aberto.withAdditionalHeaders(mapOf("Cookie" to it))
+                } ?: aberto
             }
-            val playUri = if (sessao != null) {
-                Uri.parse(sessao.gatewayUrl)
-            } else if (source.url.startsWith("http", ignoreCase = true)) {
+            val playUri = if (source.url.startsWith("http", ignoreCase = true)) {
                 Uri.parse(source.url)
             } else {
-                Uri.parse("")
+                Uri.parse("curtitv://$sid")
             }
             val itemBuilder = MediaItem.Builder().setUri(playUri)
             val zeroModo = Preferencias.zeroDelay
