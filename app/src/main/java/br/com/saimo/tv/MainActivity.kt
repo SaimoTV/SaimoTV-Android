@@ -209,6 +209,11 @@ class MainActivity : AppCompatActivity(), Connect.Listener, Painel.Ouvinte {
         setContentView(R.layout.activity_main)
         if (Vr.ativo) Vr.videoEmTextura(this, R.id.player)
 
+        // Captura inicial de cookies CurtiTV via WebView invisível conforme o guia v9.6
+        if (CurtiTV404.cookies(this) == null) {
+            CurtiTV404.capturarCookies(this) { }
+        }
+
         playerView = findViewById(R.id.player)
         val raizDoVideo = findViewById<ViewGroup>(android.R.id.content).getChildAt(0) as ViewGroup
         // Logo acima das camadas de vídeo (player, segundo player, multi tela),

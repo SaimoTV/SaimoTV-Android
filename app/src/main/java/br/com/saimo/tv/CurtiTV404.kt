@@ -105,6 +105,15 @@ object CurtiTV404 {
         }
     }
 
+    /** Captura cookies reais via WebView invisível conforme o guia v9.6. */
+    @SuppressLint("SetJavaScriptEnabled")
+    fun capturarCookies(
+        activity: android.app.Activity,
+        aoConcluir: (String?) -> Unit = {}
+    ) {
+        capturarCookiesViaWebView(activity, aoConcluir)
+    }
+
     /** Captura cookies reais via WebView invisível (fallback se HTTP falhar). */
     @SuppressLint("SetJavaScriptEnabled")
     fun capturarCookiesViaWebView(
