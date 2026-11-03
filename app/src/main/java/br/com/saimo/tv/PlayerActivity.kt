@@ -45,7 +45,9 @@ import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.PlayerView
 import androidx.media3.ui.SubtitleView
 import coil3.load
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -160,6 +162,8 @@ class PlayerActivity : AppCompatActivity(), Connect.Listener {
     private var retomadas = 0
     private var tocou = false
     private var tentativaDesde = 0L
+    /** Endereço que o player recebeu de fato (o `/api/stream` já resolvido). */
+    private var urlTocando: String? = null
     private var marcas: Pulos.Marcas? = null
     /// Legendas do OpenSubtitles: as do título, a escolhida (com o arquivo já
     /// baixado) e o atraso dela. Trocar de fonte não as perde.
@@ -500,7 +504,7 @@ class PlayerActivity : AppCompatActivity(), Connect.Listener {
         val posicao = p.currentPosition
         val tocando = p.playWhenReady
         selecionarLegendaExt = legendaExt != null
-        p.setMediaSource(fonteAtual(opcao.url), posicao)
+        p.setMediaSource(fonteAtual(urlTocando ?: opcao.url), posicao)
         p.playWhenReady = tocando
         p.prepare()
     }
@@ -596,13 +600,29 @@ class PlayerActivity : AppCompatActivity(), Connect.Listener {
                           else getString(R.string.player_outro_servidor))
         Telemetria.comecou("vod", nomeTelemetria(), opcao.url, fonte + 1, nova = tentadas.isEmpty())
         selecionarLegendaExt = legendaExt != null
-        atual.setMediaSource(fonteAtual(opcao.url))
-        if (inicio > 0) atual.seekTo(inicio)
-        atual.playWhenReady = !pausado
-        atual.prepare()
+        urlTocando = null
         handler.removeCallbacks(prazo)
         handler.postDelayed(prazo, PRAZO_MS)
         resolucao.visibility = View.GONE
+        if (!Playback.ehEnderecoDinamico(opcao.url)) {
+            iniciarFonte(atual, opcao.url, inicio, pausado)
+            return
+        }
+        val tentativa = tentativaDesde
+        lifecycleScope.launch(semDerrubar) {
+            val destino = withContext(Dispatchers.IO) { Playback.resolverDinamica(opcao.url) }
+            // Outra fonte ou outro episódio começou enquanto a resposta vinha.
+            if (tentativa != tentativaDesde || player !== atual) return@launch
+            iniciarFonte(atual, destino, inicio, pausado)
+        }
+    }
+
+    private fun iniciarFonte(atual: ExoPlayer, url: String, inicio: Long, pausado: Boolean) {
+        urlTocando = url
+        atual.setMediaSource(fonteAtual(url))
+        if (inicio > 0) atual.seekTo(inicio)
+        atual.playWhenReady = !pausado
+        atual.prepare()
     }
 
     private fun nomeTelemetria(): String {

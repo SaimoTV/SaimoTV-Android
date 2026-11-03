@@ -38,6 +38,36 @@ private const val DNS_VALIDADE_MS = 5 * 60_000L
 @UnstableApi
 object Playback {
 
+    /** `/api/stream` só escolhe o destino quando chamado; o player precisa do endereço final. */
+    fun ehEnderecoDinamico(url: String): Boolean =
+        runCatching { URI(url).path == "/api/stream" }.getOrDefault(false)
+
+    /**
+     * Pergunta ao `/api/stream` (com `json=1`) para onde ele mandaria o vídeo.
+     * Sem isso o destino HLS chegava como vídeo comum e o ExoPlayer acusava
+     * formato não reconhecido. Destino http volta embrulhado no proxy do site,
+     * que a Cloudflare tem barrado: o app abre http direto, então desembrulha.
+     * Roda fora da thread principal; devolve a própria URL quando não dá.
+     */
+    fun resolverDinamica(url: String): String {
+        if (!ehEnderecoDinamico(url)) return url
+        return runCatching {
+            val pedido = okhttp3.Request.Builder()
+                .url(url.toHttpUrl().newBuilder().setQueryParameter("json", "1").build())
+                .header("User-Agent", DEFAULT_USER_AGENT)
+                .build()
+            client.newCall(pedido).execute().use { r ->
+                if (!r.isSuccessful) return@use url
+                val destino = org.json.JSONObject(r.body?.string().orEmpty()).optString("url")
+                if (destino.isBlank()) return@use url
+                val embrulhado = runCatching { destino.toHttpUrl() }.getOrNull()
+                if (embrulhado != null && embrulhado.encodedPath == "/api/proxy") {
+                    embrulhado.queryParameter("url")?.takeIf { it.startsWith("http") } ?: destino
+                } else destino
+            }
+        }.getOrDefault(url)
+    }
+
     /**
      * One OkHttp client for everything, resolving names over DNS-over-HTTPS.
      *
