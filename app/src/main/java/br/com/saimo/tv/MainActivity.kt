@@ -209,11 +209,6 @@ class MainActivity : AppCompatActivity(), Connect.Listener, Painel.Ouvinte {
         setContentView(R.layout.activity_main)
         if (Vr.ativo) Vr.videoEmTextura(this, R.id.player)
 
-        // Captura inicial de cookies CurtiTV via WebView invisível conforme o guia v9.6
-        if (CurtiTV404.cookies(this) == null) {
-            CurtiTV404.capturarCookies(this) { }
-        }
-
         playerView = findViewById(R.id.player)
         val raizDoVideo = findViewById<ViewGroup>(android.R.id.content).getChildAt(0) as ViewGroup
         // Logo acima das camadas de vídeo (player, segundo player, multi tela),
@@ -673,17 +668,6 @@ override fun onVideoSizeChanged(videoSize: VideoSize) {
             // a borda do ao vivo — trocar de origem aqui tira quem está
             // assistindo do lugar sem motivo nenhum.
             val ficouParaTras = error.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW
-
-            val currentSource = channel.sources.getOrNull(sourceIndex)
-            // Só insiste se já tinha imagem (token vencido). Fonte que nem abriu desce
-            // para a seguinte na hora: com o gateway fora, repetir só atrasava o canal.
-            if (currentSource?.isCurti == true && viva && retomadas < RETOMADAS_MAX) {
-                CurtiTV404.invalidar(this@MainActivity)
-                retomadas++
-                showStatus(getString(R.string.reconnecting))
-                play(current, sourceIndex, apósFalha = true)
-                return
-            }
 
             if ((viva || ficouParaTras) && retomadas < RETOMADAS_MAX) {
                 retomadas++

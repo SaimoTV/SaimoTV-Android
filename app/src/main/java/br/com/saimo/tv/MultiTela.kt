@@ -269,13 +269,6 @@ class SegundaTela(
             }
             // Estava tocando: tropeço de rede, retoma a mesma antes de trocar.
             val ficouParaTras = error.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW
-            val currentSource = canal?.sources?.getOrNull(fonte)
-            if (currentSource?.isCurti == true && retomadas < RETOMADAS_MAX) {
-                CurtiTV404.invalidar(tela)
-                retomadas++
-                abrir(fonte, retomando = true)
-                return
-            }
             if ((tocou || ficouParaTras) && retomadas < RETOMADAS_MAX) {
                 retomadas++
                 abrir(fonte, retomando = true)
