@@ -141,6 +141,7 @@
     <string name="player_reconectando">Reconectando…</string>
     <string name="player_erro_titulo">Não deu para abrir este vídeo</string>
     <string name="player_erro_texto">Os servidores deste título não responderam agora. Tente de novo em alguns minutos.</string>
+    <string name="player_erro_indisponivel">Este título ainda não está disponível em nenhuma fonte. Tente de novo mais tarde.</string>
     <string name="player_erro_texto_serie">Os servidores deste episódio não responderam agora. Tente de novo, ou vá para o próximo.</string>
     <string name="player_sumiu_titulo">Título indisponível</string>
     <string name="player_sumiu_texto">Este título saiu do acervo ou mudou de lugar.</string>

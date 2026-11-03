@@ -47,9 +47,10 @@ object Playback {
      * Sem isso o destino HLS chegava como vídeo comum e o ExoPlayer acusava
      * formato não reconhecido. Destino http volta embrulhado no proxy do site,
      * que a Cloudflare tem barrado: o app abre http direto, então desembrulha.
-     * Roda fora da thread principal; devolve a própria URL quando não dá.
+     * Roda fora da thread principal; devolve a própria URL quando não dá e
+     * `null` quando o servidor afirma (404) que não há vídeo em lugar nenhum.
      */
-    fun resolverDinamica(url: String): String {
+    fun resolverDinamica(url: String): String? {
         if (!ehEnderecoDinamico(url)) return url
         return runCatching {
             val pedido = okhttp3.Request.Builder()
@@ -57,6 +58,7 @@ object Playback {
                 .header("User-Agent", DEFAULT_USER_AGENT)
                 .build()
             client.newCall(pedido).execute().use { r ->
+                if (r.code == 404) return@use null
                 if (!r.isSuccessful) return@use url
                 val destino = org.json.JSONObject(r.body?.string().orEmpty()).optString("url")
                 if (destino.isBlank()) return@use url

@@ -164,6 +164,8 @@ class PlayerActivity : AppCompatActivity(), Connect.Listener {
     private var tentativaDesde = 0L
     /** Endereço que o player recebeu de fato (o `/api/stream` já resolvido). */
     private var urlTocando: String? = null
+    /** Alguma fonte deste título respondeu que o vídeo não existe ainda. */
+    private var semVideo = false
     private var marcas: Pulos.Marcas? = null
     /// Legendas do OpenSubtitles: as do título, a escolhida (com o arquivo já
     /// baixado) e o atraso dela. Trocar de fonte não as perde.
@@ -391,7 +393,7 @@ class PlayerActivity : AppCompatActivity(), Connect.Listener {
         if (versao !in fontes.keys) versao = if (Preferencias.versao in fontes) Preferencias.versao
                                               else fontes.keys.firstOrNull() ?: "dub"
         opcoes = Titulos.ordem(fontes, versao)
-        tentadas.clear()
+        tentadas.clear(); semVideo = false
         fonte = if (herdarFonte && r.serie && preferidaPosicao >= 0)
             Titulos.preferida(opcoes, preferidaServidor, preferidaPosicao) else 0
         marcas = null
@@ -613,6 +615,13 @@ class PlayerActivity : AppCompatActivity(), Connect.Listener {
             val destino = withContext(Dispatchers.IO) { Playback.resolverDinamica(opcao.url) }
             // Outra fonte ou outro episódio começou enquanto a resposta vinha.
             if (tentativa != tentativaDesde || player !== atual) return@launch
+            if (destino == null) {
+                // Sem vídeo em provedor nenhum: nem tenta tocar, vai para a fonte seguinte.
+                semVideo = true
+                handler.removeCallbacks(prazo)
+                proximaFonte(inicio)
+                return@launch
+            }
             iniciarFonte(atual, destino, inicio, pausado)
         }
     }
@@ -687,8 +696,11 @@ class PlayerActivity : AppCompatActivity(), Connect.Listener {
         handler.removeCallbacks(prazo)
         Telemetria.caiu("vod", nomeTelemetria(), opcoes.size)
         player?.stop()
-        val texto = if (resolvido?.serie == true) getString(R.string.player_erro_texto_serie)
-                    else getString(R.string.player_erro_texto)
+        val texto = when {
+            semVideo -> getString(R.string.player_erro_indisponivel)
+            resolvido?.serie == true -> getString(R.string.player_erro_texto_serie)
+            else -> getString(R.string.player_erro_texto)
+        }
         mostrarErro(getString(R.string.player_erro_titulo), texto)
     }
 
@@ -1074,7 +1086,7 @@ class PlayerActivity : AppCompatActivity(), Connect.Listener {
         esconderCarregando()
         val acoes = mutableListOf<Pair<String, () -> Unit>>(
             getString(R.string.player_tentar_de_novo) to {
-                esconderAviso(); fonte = 0; tentadas.clear()
+                esconderAviso(); fonte = 0; tentadas.clear(); semVideo = false
                 if (resolvido == null) lifecycleScope.launch(semDerrubar) { preparar() }
                 else tocarFonte(Progresso.posicao(this, resolvido!!.chave(ep)))
             })
@@ -1293,7 +1305,7 @@ class PlayerActivity : AppCompatActivity(), Connect.Listener {
                 val ponto = player?.currentPosition ?: 0L
                 opcoes = Titulos.ordem(fontes, versao)
                 fonte = 0
-                tentadas.clear()
+                tentadas.clear(); semVideo = false
                 atualizarTitulos()
                 montarBotoes()
                 tocarFonte(ponto)
@@ -1318,7 +1330,7 @@ class PlayerActivity : AppCompatActivity(), Connect.Listener {
                 val ponto = player?.currentPosition ?: 0L
                 fonte = i
                 // A automática segue dali para a frente, como sempre.
-                tentadas.clear(); tentadas += 0 until i
+                tentadas.clear(); semVideo = false; tentadas += 0 until i
                 if (opcao.versao != versao) {
                     versao = opcao.versao
                     atualizarTitulos()
@@ -1558,7 +1570,7 @@ class PlayerActivity : AppCompatActivity(), Connect.Listener {
         runOnUiThread {
             if (opcoes.size > 1) {
                 val prox = (fonte + delta + opcoes.size) % opcoes.size
-                tentadas.clear()
+                tentadas.clear(); semVideo = false
                 fonte = prox
                 tocarFonte(inicio = player?.currentPosition ?: 0L, pausado = false)
                 Connect.notificarMudancaDeEstado()
