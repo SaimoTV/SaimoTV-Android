@@ -247,6 +247,10 @@ object Playback {
             cabecalhos["Referer"] = "https://w7.embedtv.cc/"
             cabecalhos["Origin"] = "https://w7.embedtv.cc"
         }
+        if (source.url.contains("embedtvproxy.workers.dev", ignoreCase = true) && source.referer == null) {
+            cabecalhos["Referer"] = "https://nexustvplay.bbroot.com/"
+            cabecalhos["Origin"] = "https://nexustvplay.bbroot.com"
+        }
         val upstream: DataSource.Factory = OkHttpDataSource.Factory(client)
             .setUserAgent(source.userAgent ?: DEFAULT_USER_AGENT)
             .apply {
