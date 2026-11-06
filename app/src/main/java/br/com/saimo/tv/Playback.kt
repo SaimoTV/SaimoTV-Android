@@ -108,7 +108,8 @@ object Playback {
                     val resposta = chain.proceed(pedido)
                     val path = pedido.url.encodedPath
                     val isCamouflage = (host.contains("s1001604.lat") || host.contains("cloudfront-net.lat") || host.endsWith(".lat")) &&
-                        (path.endsWith(".png", ignoreCase = true) || path.endsWith(".woff", ignoreCase = true))
+                        (path.endsWith(".png", ignoreCase = true) || path.endsWith(".woff", ignoreCase = true) ||
+                            path.endsWith(".css", ignoreCase = true) || path.endsWith(".js", ignoreCase = true))
                     if (isCamouflage) {
                         resposta.newBuilder().header("Content-Type", "video/mp2t").build()
                     } else {
