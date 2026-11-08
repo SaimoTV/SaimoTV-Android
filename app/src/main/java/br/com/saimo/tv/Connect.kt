@@ -818,7 +818,7 @@ object Connect {
                         put("tv", System.currentTimeMillis())
                     }.toString())
                 }
-                "sync" -> {
+                "dados" -> {
                     if (!autenticado) return
                     // O que o celular tem entra aqui; as telas leem de novo ao voltar.
                     CoroutineScope(Dispatchers.IO).launch {

@@ -8,7 +8,8 @@ import org.json.JSONObject
  * Sincronia do Saimo Connect: onde parou em filmes e episódios, títulos
  * favoritos e canais favoritos, entre a TV e o celular.
  *
- * Os dois lados mandam tudo ao conectar (`{"t":"sync"}`) e de novo quando algo
+ * Os dois lados mandam tudo ao conectar (`{"t":"dados"}`; "sync" já é o
+ * pedido de estado da TV) e de novo quando algo
  * muda com o celular conectado. O formato é por título (o mesmo nos dois apps):
  *
  *   progresso:  {tipo:"f"|"s", titulo, ano, letra, temporada, episodio, pos, dur, em}
@@ -59,7 +60,7 @@ object SincroniaConnect {
         Favorites.load(context)
         for (nome in Favorites.todos()) favCanais.put(nome)
         return JSONObject().apply {
-            put("t", "sync")
+            put("t", "dados")
             put("progresso", progresso)
             put("favTitulos", favTitulos)
             put("favCanais", favCanais)
