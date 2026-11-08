@@ -188,5 +188,6 @@
         <activity android:name=".OnDemandActivity" android:exported="false" android:launchMode="singleTop" />
         <activity android:name=".SemListaActivity" android:exported="false" />
         <activity android:name=".RadiosActivity" android:exported="false" android:launchMode="singleTop" />
+        <activity android:name=".DoacaoActivity" android:exported="false" android:launchMode="singleTop" />
 </application>
 </manifest>

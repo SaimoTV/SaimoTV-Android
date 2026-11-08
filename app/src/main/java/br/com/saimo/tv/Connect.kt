@@ -242,6 +242,26 @@ object Connect {
     /** Retorna true se houver clientes conectados via WebSocket */
     fun temClienteConectado(): Boolean = clientes.isNotEmpty()
 
+    private var contextoSync: Context? = null
+    private val mandarSync = Runnable {
+        val ctx = contextoSync ?: return@Runnable
+        CoroutineScope(Dispatchers.IO).launch {
+            val texto = runCatching { SincroniaConnect.pacote(ctx).toString() }.getOrNull() ?: return@launch
+            for (c in clientes) if (c.autenticado) c.enviarTexto(texto)
+        }
+    }
+
+    /**
+     * Algo mudou aqui (progresso, favorito): manda a sincronia ao celular
+     * conectado. Junta as mudanças de alguns segundos num envio só.
+     */
+    fun avisarMudancaLocal(context: Context, atrasoMs: Long = 5000) {
+        if (clientes.none { it.autenticado }) return
+        contextoSync = context.applicationContext
+        handler.removeCallbacks(mandarSync)
+        handler.postDelayed(mandarSync, atrasoMs)
+    }
+
     fun gerarNovoPin(): String {
         pinAtual = String.format("%06d", Random.nextInt(100000, 999999))
         return pinAtual
@@ -798,6 +818,13 @@ object Connect {
                         put("tv", System.currentTimeMillis())
                     }.toString())
                 }
+                "sync" -> {
+                    if (!autenticado) return
+                    // O que o celular tem entra aqui; as telas leem de novo ao voltar.
+                    CoroutineScope(Dispatchers.IO).launch {
+                        runCatching { SincroniaConnect.aplicar(context, json) }
+                    }
+                }
                 else -> {
                     if (!autenticado) return
                     executarComando(tipo, json)
@@ -824,6 +851,10 @@ object Connect {
             }.toString()
             enviarTexto(welcome)
             notificarMudancaDeEstado()
+            // Progresso e favoritos vão ao celular assim que ele entra.
+            CoroutineScope(Dispatchers.IO).launch {
+                runCatching { enviarTexto(SincroniaConnect.pacote(context).toString()) }
+            }
         }
 
         private fun executarComando(tipo: String, json: JSONObject) {

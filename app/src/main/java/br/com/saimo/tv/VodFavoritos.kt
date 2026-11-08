@@ -57,6 +57,7 @@ object VodFavoritos {
         }
         if (!fora) atual.add(0, item)
         gravar(context, atual)
+        Connect.avisarMudancaLocal(context, 1000)
         return !fora
     }
 

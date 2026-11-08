@@ -250,6 +250,23 @@
     <string name="menu_ao_vivo">Ao vivo</string>
     <string name="menu_buscar">Buscar</string>
     <string name="menu_ajustes">Ajustes</string>
+    <string name="menu_apoie">Apoie</string>
+    <string name="doacao_tag">Comunidade Saimo TV</string>
+    <string name="doacao_titulo">Ajude a manter tudo %1$s</string>
+    <string name="doacao_titulo_destaque" formatted="false">100% gratuito</string>
+    <string name="doacao_sub">Sem anúncios, sem mensalidade e livre para todo mundo.</string>
+    <string name="doacao_historia">Manter servidores rápidos, a transmissão e as atualizações de todo dia custa dinheiro todo mês. Quem puder ajudar com qualquer valor faz uma diferença enorme para o Saimo TV continuar no ar para todos.</string>
+    <string name="doacao_v1_titulo">Zero anúncios</string>
+    <string name="doacao_v1_texto">Nada interrompendo o que você assiste</string>
+    <string name="doacao_v2_titulo">Servidores rápidos</string>
+    <string name="doacao_v2_texto">Transmissão estável e em alta qualidade</string>
+    <string name="doacao_v3_titulo">Sem mensalidade</string>
+    <string name="doacao_v3_texto">Canais, filmes e séries para todo mundo</string>
+    <string name="doacao_quem_apoiou">Quem já apoiou</string>
+    <string name="doacao_camera">Aponte a câmera do celular</string>
+    <string name="doacao_qr_descricao">QR code para doar</string>
+    <string name="doacao_link_visivel">deflow.exchange/pt/qr/saimo-tv</string>
+    <string name="doacao_pix">Pix ou cripto, pagamento seguro pela Deflow</string>
     <string name="menu_eventos">Eventos</string>
     <string name="inicio_ao_vivo_agora">Ao vivo agora</string>
     <string name="inicio_sair">Aperte VOLTAR de novo para sair</string>

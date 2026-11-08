@@ -20,7 +20,7 @@ import java.util.Date
 import java.util.Locale
 
 /** A aba do menu do topo que cada tela representa. */
-enum class Aba { INICIO, AO_VIVO, EVENTOS, ON_DEMAND, FAVORITOS, RADIOS, EXTRAS, BUSCAR, AJUSTES, NENHUMA }
+enum class Aba { INICIO, AO_VIVO, EVENTOS, ON_DEMAND, FAVORITOS, RADIOS, EXTRAS, BUSCAR, APOIE, AJUSTES, NENHUMA }
 
 /**
  * O menu do topo, o mesmo em todas as telas.
@@ -68,6 +68,7 @@ object MenuGlobal {
             Triple(Aba.FAVORITOS, R.string.vod_favoritos, R.drawable.ic_star),
             Triple(Aba.RADIOS, R.string.menu_radios, R.drawable.ic_radio),
             Triple(Aba.EXTRAS, R.string.vod_extras, R.drawable.ic_more),
+            Triple(Aba.APOIE, R.string.menu_apoie, R.drawable.ic_favorite),
             Triple(Aba.AJUSTES, R.string.menu_ajustes, R.drawable.ic_settings)
         )
 
@@ -75,16 +76,18 @@ object MenuGlobal {
             abas.addView(TextView(tela).apply {
                 text = tela.getString(texto)
                 tag = aba
-                textSize = 16f
+                // Dez abas com a Apoie: tamanho e folga medidos para caber em 960 dp.
+                textSize = 15f
                 maxLines = 1
                 typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
                 setTextColor(ContextCompat.getColorStateList(tela, R.color.texto_botao_ficha))
-                setBackgroundResource(R.drawable.aba_menu)
+                // Apoie fica sempre em destaque, chamando atenção no menu.
+                setBackgroundResource(if (aba == Aba.APOIE) R.drawable.aba_apoie else R.drawable.aba_menu)
                 isFocusable = true
                 isSelected = aba == atual
                 // Extras só existe depois do código, e some de novo sem deixar vão.
                 if (aba == Aba.EXTRAS) visibility = if (Unlock.unlocked) View.VISIBLE else View.GONE
-                setPadding((11 * d).toInt(), (6 * d).toInt(), (11 * d).toInt(), (6 * d).toInt())
+                setPadding((8 * d).toInt(), (6 * d).toInt(), (8 * d).toInt(), (6 * d).toInt())
                 layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginEnd = (1 * d).toInt() }
                 when {
@@ -162,6 +165,7 @@ object MenuGlobal {
             Aba.EXTRAS -> GradeActivity.intent(tela, GradeActivity.EXTRAS)
             Aba.BUSCAR -> Intent(tela, BuscaActivity::class.java)
             Aba.AJUSTES -> Intent(tela, AjustesActivity::class.java)
+            Aba.APOIE -> Intent(tela, DoacaoActivity::class.java)
         }
         if (destino == null) tela.startActivity(inicio)
         else tela.startActivities(arrayOf(inicio, destino))

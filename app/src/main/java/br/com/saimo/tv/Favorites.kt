@@ -17,6 +17,8 @@ object Favorites {
 
     fun contains(name: String) = name in cache
 
+    fun todos(): Set<String> = cache.toSet()
+
     fun toggle(context: Context, name: String) {
         if (!cache.remove(name)) cache.add(name)
         context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
@@ -24,6 +26,7 @@ object Favorites {
             // já guardam faz o Android achar que nada mudou e não gravar em
             // disco — o favorito valia até o app fechar e sumia depois.
             .edit().putStringSet(KEY, HashSet(cache)).apply()
+        Connect.avisarMudancaLocal(context, 1000)
     }
 
     /** Favourites first, then alphabetical. */

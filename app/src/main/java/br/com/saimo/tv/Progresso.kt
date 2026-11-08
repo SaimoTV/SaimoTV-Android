@@ -57,6 +57,7 @@ object Progresso {
             .putLong("$chave|t", System.currentTimeMillis())
         tocarSerie(editor, chave)
         editor.apply()
+        Connect.avisarMudancaLocal(context, 15000)
     }
 
     /** O instante do episódio vale também para a série, que é quem aparece no "continuar". */

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Aba Apoie: sempre em destaque (turquesa); focada fica branca como as outras. -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_focused="true">
+        <shape android:shape="rectangle">
+            <solid android:color="#FFFFFFFF" />
+            <corners android:radius="100dp" />
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="rectangle">
+            <gradient android:startColor="#FF0FA89A" android:endColor="#FF2563EB" android:angle="0" />
+            <corners android:radius="100dp" />
+        </shape>
+    </item>
+</selector>

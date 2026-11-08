@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Apoie o Saimo TV: texto à esquerda, QR code e link à direita. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:paddingStart="60dp"
+    android:paddingEnd="60dp"
+    android:paddingTop="70dp"
+    android:paddingBottom="24dp">
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/doacao_tag"
+            android:paddingStart="12dp" android:paddingEnd="12dp"
+            android:paddingTop="4dp" android:paddingBottom="4dp"
+            android:text="@string/doacao_tag"
+            android:textColor="#FF7FF0E3"
+            android:textSize="12sp" />
+
+        <TextView
+            android:id="@+id/doacaoTitulo"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:textColor="#FFFFFFFF"
+            android:textSize="32sp"
+            android:fontFamily="sans-serif-medium" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="@string/doacao_sub"
+            android:textColor="#FFC9D1E3"
+            android:textSize="16sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:lineSpacingExtra="3dp"
+            android:text="@string/doacao_historia"
+            android:textColor="#FFAAB4C8"
+            android:textSize="13sp" />
+
+        <LinearLayout
+            android:id="@+id/doacaoVantagens"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:orientation="horizontal" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/doacao_quem_apoiou"
+            android:textColor="#FFC9D1E3"
+            android:textSize="12sp"
+            android:fontFamily="sans-serif-medium" />
+
+        <TextView
+            android:id="@+id/doacaoApoiadores"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:maxLines="3"
+            android:ellipsize="end"
+            android:textColor="#FFC7F5EF"
+            android:textSize="12sp" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="270dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="40dp"
+        android:background="@drawable/doacao_cartao"
+        android:gravity="center_horizontal"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/doacao_camera"
+            android:textColor="#FF0B0F1A"
+            android:textSize="15sp"
+            android:fontFamily="sans-serif-medium" />
+
+        <ImageView
+            android:layout_width="210dp"
+            android:layout_height="210dp"
+            android:layout_marginTop="10dp"
+            android:contentDescription="@string/doacao_qr_descricao"
+            android:scaleType="fitCenter"
+            android:src="@drawable/doacao_qr" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="@string/doacao_link_visivel"
+            android:textColor="#FF0E7490"
+            android:textSize="13sp"
+            android:fontFamily="sans-serif-medium" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/doacao_pix"
+            android:textColor="#FF5B6475"
+            android:textSize="10sp" />
+    </LinearLayout>
+</LinearLayout>
