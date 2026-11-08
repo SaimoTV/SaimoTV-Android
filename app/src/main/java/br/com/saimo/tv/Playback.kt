@@ -12,6 +12,8 @@ import androidx.media3.datasource.okhttp.OkHttpDataSource
 import okhttp3.OkHttpClient
 import okhttp3.dnsoverhttps.DnsOverHttps
 import okhttp3.HttpUrl.Companion.toHttpUrl
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
 import java.net.InetAddress
 import java.net.URI
 import java.net.URLDecoder
@@ -148,17 +150,17 @@ object Playback {
 
             if (ticketFinal == null) return null
 
-            val body = okhttp3.FormBody.Builder()
-                .add("source", ticketFinal)
-                .build()
+            val jsonPayload = org.json.JSONObject().put("ticket", ticketFinal).toString()
+            val body = jsonPayload.toRequestBody("application/json; charset=utf-8".toMediaType())
 
             val req2 = okhttp3.Request.Builder()
                 .url("https://redeflixapi.click/playerkys/source.php")
                 .header("User-Agent", chromeUA)
                 .header("Referer", pagina)
                 .header("Origin", "https://redeflixapi.click")
-                .header("Accept", "application/json, text/javascript, */*; q=0.01")
-                .header("X-Requested-With", "XMLHttpRequest")
+                .header("Accept", "application/json, text/plain, */*")
+                .header("Content-Type", "application/json")
+                .header("X-Requested-With", "RedeFlixPlayer")
                 .post(body)
                 .build()
 
@@ -169,6 +171,7 @@ object Playback {
 
             val obj = org.json.JSONObject(jsonResp)
             val streamUrl = obj.optString("url").takeIf { it.isNotBlank() }
+                ?: obj.optJSONObject("data")?.optString("video_url")?.takeIf { it.isNotBlank() }
             if (streamUrl != null && streamUrl.startsWith("http")) {
                 streamUrl
             } else {
