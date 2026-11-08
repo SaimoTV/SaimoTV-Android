@@ -59,24 +59,7 @@
             android:layout_marginTop="16dp"
             android:orientation="horizontal" />
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="@string/doacao_quem_apoiou"
-            android:textColor="#FFC9D1E3"
-            android:textSize="12sp"
-            android:fontFamily="sans-serif-medium" />
 
-        <TextView
-            android:id="@+id/doacaoApoiadores"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:maxLines="3"
-            android:ellipsize="end"
-            android:textColor="#FFC7F5EF"
-            android:textSize="12sp" />
     </LinearLayout>
 
     <LinearLayout

@@ -9,15 +9,11 @@ import android.view.View
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
-import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.util.UnstableApi
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 /**
- * Apoie o Saimo TV: por que doar, o QR code (o pagamento é feito no celular),
- * o link escrito e quem já apoiou, a lista publicada pelo site.
+ * Apoie o Saimo TV: por que doar, o QR code (o pagamento é feito no celular)
+ * e o link escrito.
  */
 @UnstableApi
 class DoacaoActivity : TelaComMenu() {
@@ -43,11 +39,6 @@ class DoacaoActivity : TelaComMenu() {
 
         // A tela não tem nada para escolher: o foco fica na aba Apoie do menu.
         MenuGlobal.focar(barraMenu, Aba.APOIE)
-
-        lifecycleScope.launch(semDerrubar) {
-            val nomes = withContext(Dispatchers.IO) { apoiadores() }
-            if (nomes.isNotEmpty()) findViewById<TextView>(R.id.doacaoApoiadores).text = nomes.joinToString("   ·   ")
-        }
     }
 
     private fun vantagem(icone: Int, titulo: Int, texto: Int, comMargem: Boolean): View {
@@ -77,22 +68,7 @@ class DoacaoActivity : TelaComMenu() {
         }
     }
 
-    /** Nomes de apoiadores.txt, na ordem publicada; vazio sem rede. */
-    private fun apoiadores(): List<String> = runCatching {
-        val pedido = okhttp3.Request.Builder().url(APOIADORES).build()
-        Playback.client.newCall(pedido).execute().use { r ->
-            if (!r.isSuccessful) return@use emptyList()
-            r.body?.string().orEmpty().lineSequence()
-                .map(String::trim)
-                .filter { it.isNotEmpty() && !it.startsWith("#") }
-                .map { it.substringBefore('\t').trim() }
-                .filter(String::isNotEmpty)
-                .take(40).toList()
-        }
-    }.getOrDefault(emptyList())
-
     companion object {
         const val LINK = "https://deflow.exchange/pt/qr/saimo-tv"
-        private const val APOIADORES = "https://saimo-tv.pages.dev/apoiadores.txt"
     }
 }

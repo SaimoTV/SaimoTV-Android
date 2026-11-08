@@ -262,7 +262,6 @@
     <string name="doacao_v2_texto">Transmissão estável e em alta qualidade</string>
     <string name="doacao_v3_titulo">Sem mensalidade</string>
     <string name="doacao_v3_texto">Canais, filmes e séries para todo mundo</string>
-    <string name="doacao_quem_apoiou">Quem já apoiou</string>
     <string name="doacao_camera">Aponte a câmera do celular</string>
     <string name="doacao_qr_descricao">QR code para doar</string>
     <string name="doacao_link_visivel">deflow.exchange/pt/qr/saimo-tv</string>
