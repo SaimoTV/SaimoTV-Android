@@ -52,7 +52,7 @@ object Playback {
      */
     fun resolverDinamica(url: String): String? {
         if (!ehEnderecoDinamico(url)) return url
-        return runCatching {
+        val doServidor = runCatching {
             val pedido = okhttp3.Request.Builder()
                 .url(url.toHttpUrl().newBuilder().setQueryParameter("json", "1").build())
                 .header("User-Agent", DEFAULT_USER_AGENT)
@@ -60,14 +60,121 @@ object Playback {
             client.newCall(pedido).execute().use { r ->
                 if (r.code == 404) return@use null
                 if (!r.isSuccessful) return@use url
-                val destino = org.json.JSONObject(r.body?.string().orEmpty()).optString("url")
+                val json = org.json.JSONObject(r.body?.string().orEmpty())
+                if (json.optBoolean("somenteApp", false)) return@use null
+                val destino = json.optString("url")
                 if (destino.isBlank()) return@use url
                 val embrulhado = runCatching { destino.toHttpUrl() }.getOrNull()
                 if (embrulhado != null && embrulhado.encodedPath == "/api/proxy") {
                     embrulhado.queryParameter("url")?.takeIf { it.startsWith("http") } ?: destino
                 } else destino
             }
-        }.getOrDefault(url)
+        }.getOrNull()
+
+        if (!doServidor.isNullOrBlank()) {
+            return doServidor
+        }
+
+        // Fallback: Se o Cloudflare Pages retornar 404 ou somenteApp, resolve direto na RedeFlix via conexão residencial
+        val direto = resolverRedeFlixDireto(url)
+        if (!direto.isNullOrBlank()) {
+            return direto
+        }
+
+        return null
+    }
+
+    /**
+     * Resolve diretamente na RedeFlix a partir da conexão residencial do aparelho
+     * quando a API remota do Cloudflare Pages falhar ou for bloqueada por anti-bot.
+     */
+    fun resolverRedeFlixDireto(url: String): String? {
+        return runCatching {
+            val uri = url.toHttpUrl()
+            val id = uri.queryParameter("id")?.takeIf { it.isNotBlank() } ?: return null
+            val tipo = uri.queryParameter("tipo") ?: "movie"
+            val s = uri.queryParameter("s") ?: "1"
+            val e = uri.queryParameter("e") ?: "1"
+            val versao = uri.queryParameter("versao") ?: "dub"
+
+            val isSerie = tipo == "series" || tipo == "serie"
+            val pagina = if (isSerie) {
+                "https://redeflixapi.click/serie/$id/$s/$e"
+            } else {
+                "https://redeflixapi.click/filme/$id"
+            }
+
+            val chromeUA = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
+            val req1 = okhttp3.Request.Builder()
+                .url(pagina)
+                .header("User-Agent", chromeUA)
+                .header("Referer", "https://redeflixapi.click/")
+                .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+                .header("Accept-Language", "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7")
+                .build()
+
+            val html = client.newCall(req1).execute().use { resp ->
+                if (!resp.isSuccessful) return null
+                resp.body?.string() ?: return null
+            }
+
+            var ticketFinal: String? = null
+            val patternFast = Regex("""fastLaunchTickets\s*=\s*(\{[^}]+\})""")
+            val match = patternFast.find(html)
+            if (match != null) {
+                val jsonStr = match.groupValues[1]
+                val tickets = runCatching { org.json.JSONObject(jsonStr) }.getOrNull()
+                if (tickets != null) {
+                    val preferidos = if (versao == "leg") listOf("legendado", "default") else listOf("default", "legendado")
+                    for (srv in preferidos) {
+                        val t = tickets.optString(srv).takeIf { it.isNotBlank() }
+                        if (t != null) {
+                            ticketFinal = t
+                            break
+                        }
+                    }
+                }
+            }
+
+            if (ticketFinal == null) {
+                val regexFallback = Regex("""playbackResolveTicket\s*=\s*['"]([^'"]+)['"]""")
+                ticketFinal = regexFallback.find(html)?.groupValues?.get(1)
+            }
+
+            if (ticketFinal == null) {
+                val regexPost = Regex("""playerkys/source\.php['"]\s*,\s*\{\s*source\s*:\s*['"]([^'"]+)['"]""")
+                ticketFinal = regexPost.find(html)?.groupValues?.get(1)
+            }
+
+            if (ticketFinal == null) return null
+
+            val body = okhttp3.FormBody.Builder()
+                .add("source", ticketFinal)
+                .build()
+
+            val req2 = okhttp3.Request.Builder()
+                .url("https://redeflixapi.click/playerkys/source.php")
+                .header("User-Agent", chromeUA)
+                .header("Referer", pagina)
+                .header("Origin", "https://redeflixapi.click")
+                .header("Accept", "application/json, text/javascript, */*; q=0.01")
+                .header("X-Requested-With", "XMLHttpRequest")
+                .post(body)
+                .build()
+
+            val jsonResp = client.newCall(req2).execute().use { resp ->
+                if (!resp.isSuccessful) return null
+                resp.body?.string() ?: return null
+            }
+
+            val obj = org.json.JSONObject(jsonResp)
+            val streamUrl = obj.optString("url").takeIf { it.isNotBlank() }
+            if (streamUrl != null && streamUrl.startsWith("http")) {
+                streamUrl
+            } else {
+                null
+            }
+        }.getOrNull()
     }
 
     /**
