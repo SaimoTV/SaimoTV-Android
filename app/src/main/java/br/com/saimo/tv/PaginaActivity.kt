@@ -148,6 +148,12 @@ open class PaginaActivity : TelaComMenu() {
                     colecao = if (item.daColecao) item.colecao else ""), item.capa, item.trailer)
             })
         }
+        // Numa página de um tipo, o acervo inteiro com filtros (gênero, ano,
+        // idade, nota) logo na segunda fileira, sem precisar descer a página toda.
+        if (!todos) lista.add(minOf(1, lista.size), Inicio.Fila(getString(R.string.pagina_explorar), listOf(
+            Inicio.Cartao(getString(R.string.pagina_todos_az), "", "A–Z") {
+                GradeActivity.abrir(this, tipo)
+            })))
         if (!montou) mostrar(lista)
 
         if (todos) montarTodos(lista) else montarTipo(lista)
@@ -169,10 +175,6 @@ open class PaginaActivity : TelaComMenu() {
         for ((g, itens) in porGenero) {
             lista += Inicio.Fila(g, itens.map { cartao(it.alvo, it.capa) } + verMais(tipo, g))
         }
-        lista += Inicio.Fila(getString(R.string.pagina_explorar), listOf(
-            Inicio.Cartao(getString(R.string.pagina_todos_az), "", "A–Z") {
-                GradeActivity.abrir(this, tipo)
-            }))
     }
 
     /**

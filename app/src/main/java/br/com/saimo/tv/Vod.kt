@@ -486,6 +486,9 @@ object Vod {
      * vez. [fresco] pula o disco — é o que se usa quando um título não foi
      * achado no arquivo local.
      */
+    /** Um arquivo publicado do acervo (com o mesmo cache em disco dos outros). */
+    suspend fun texto(context: Context, nome: String): String? = arquivo(context, nome)
+
     private suspend fun arquivo(context: Context, nome: String, fresco: Boolean = false): String? =
         withContext(Dispatchers.IO) {
             val local = local(context, nome)

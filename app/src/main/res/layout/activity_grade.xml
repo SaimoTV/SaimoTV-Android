@@ -29,6 +29,16 @@
             android:layout_weight="1"
             android:textColor="@color/text_secondary"
             android:textSize="18sp" />
+    </LinearLayout>
+
+    <!-- Filtros, como nos grandes serviços: gênero, ano, idade, nota e ordem. -->
+    <LinearLayout
+        android:id="@+id/gradeFiltros"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
         <TextView
             android:id="@+id/gradeGenero"
             android:layout_width="wrap_content"
@@ -40,7 +50,49 @@
             android:paddingEnd="20dp"
             android:paddingBottom="8dp"
             android:textColor="@color/texto_botao_ficha"
-            android:textSize="17sp" />
+            android:textSize="15sp" />
+        <TextView
+            android:id="@+id/gradeAno"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:background="@drawable/botao_player"
+            android:focusable="true"
+            android:paddingStart="16dp"
+            android:paddingTop="8dp"
+            android:paddingEnd="16dp"
+            android:paddingBottom="8dp"
+            android:textColor="@color/texto_botao_ficha"
+            android:textSize="15sp"
+            android:visibility="gone" />
+        <TextView
+            android:id="@+id/gradeIdade"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:background="@drawable/botao_player"
+            android:focusable="true"
+            android:paddingStart="16dp"
+            android:paddingTop="8dp"
+            android:paddingEnd="16dp"
+            android:paddingBottom="8dp"
+            android:textColor="@color/texto_botao_ficha"
+            android:textSize="15sp"
+            android:visibility="gone" />
+        <TextView
+            android:id="@+id/gradeNota"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:background="@drawable/botao_player"
+            android:focusable="true"
+            android:paddingStart="16dp"
+            android:paddingTop="8dp"
+            android:paddingEnd="16dp"
+            android:paddingBottom="8dp"
+            android:textColor="@color/texto_botao_ficha"
+            android:textSize="15sp"
+            android:visibility="gone" />
         <TextView
             android:id="@+id/gradeOrdem"
             android:layout_width="wrap_content"
@@ -53,7 +105,7 @@
             android:paddingEnd="20dp"
             android:paddingBottom="8dp"
             android:textColor="@color/texto_botao_ficha"
-            android:textSize="17sp" />
+            android:textSize="15sp" />
     </LinearLayout>
 
     <LinearLayout

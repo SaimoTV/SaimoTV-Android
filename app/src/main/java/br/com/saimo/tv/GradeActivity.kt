@@ -22,6 +22,7 @@ import coil3.load
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.Locale
 
 /**
  * Um tipo inteiro em capas: filmes, séries, animes, doramas ou favoritos.
@@ -78,7 +79,14 @@ class GradeActivity : TelaComMenu() {
     private var todos: List<Item> = emptyList()
     private var vistos: List<Item> = emptyList()
     private var genero = ""
-    private var novosPrimeiro = true
+    private enum class Ordem { AZ, NOVOS, MELHORES, POPULARES }
+    private var ordem = Ordem.NOVOS
+    private val novosPrimeiro: Boolean get() = ordem != Ordem.AZ
+    /// Filtros do On Demand (ver Detalhes): faixa de anos, idade máxima e nota mínima.
+    private var anos: IntRange? = null
+    private var rotuloAnos = ""
+    private var idadeMax: Int? = null
+    private var notaMin = 0
     private val adaptador = Capas()
     private var colunas = 5
     private val adaptadorLetras = Letras()
@@ -113,11 +121,18 @@ class GradeActivity : TelaComMenu() {
         letras.adapter = adaptadorLetras
 
         findViewById<TextView>(R.id.gradeGenero).setOnClickListener { escolherGenero() }
+        findViewById<TextView>(R.id.gradeAno).setOnClickListener { escolherAno() }
+        findViewById<TextView>(R.id.gradeIdade).setOnClickListener { escolherIdade() }
+        findViewById<TextView>(R.id.gradeNota).setOnClickListener { escolherNota() }
         findViewById<TextView>(R.id.gradeOrdem).setOnClickListener {
-            Painel.mostrar(this, getString(R.string.grade_ordem, "").trim(' ', ':'), listOf(
-                Painel.Item(getString(R.string.grade_az), marcado = !novosPrimeiro) { novosPrimeiro = false; aplicar() },
-                Painel.Item(getString(R.string.grade_novos), marcado = novosPrimeiro) { novosPrimeiro = true; aplicar() },
-            ))
+            val opcoes = mutableListOf(Ordem.NOVOS to R.string.grade_novos, Ordem.AZ to R.string.grade_az)
+            if (InfoDosTitulos.prontos) {
+                opcoes += Ordem.MELHORES to R.string.grade_melhores
+                opcoes += Ordem.POPULARES to R.string.grade_populares
+            }
+            Painel.mostrar(this, getString(R.string.grade_ordem, "").trim(' ', ':'), opcoes.map { (o, r) ->
+                Painel.Item(getString(r), marcado = ordem == o) { ordem = o; aplicar() }
+            })
         }
         atualizarBotoes()
         lifecycleScope.launch(semDerrubar) { carregar() }
@@ -132,6 +147,7 @@ class GradeActivity : TelaComMenu() {
 
     private suspend fun carregar() {
         Generos.carregar(this)
+        InfoDosTitulos.carregar(this)
         todos = withContext(Dispatchers.Default) {
             when (tipo) {
                 FILMES, SERIES -> Vod.entradas(this@GradeActivity).filter { it.serie == (tipo == SERIES) && Generos.capa(it.achado.titulo, it.achado.serie) != null }
@@ -161,12 +177,41 @@ class GradeActivity : TelaComMenu() {
 
     private fun aplicar() {
         var lista = if (genero.isEmpty()) todos else todos.filter { Generos.tem(it.alvo.titulo, it.alvo.serie, genero) }
-        lista = if (novosPrimeiro) lista.sortedWith(compareByDescending<Item> { it.ano }.thenBy { it.ordem })
-                else lista.sortedBy { it.ordem }
+        if (anos != null || idadeMax != null || notaMin > 0) {
+            lista = lista.filter { item ->
+                val d = InfoDosTitulos.de(item.alvo.titulo, item.alvo.serie)
+                val ano = d?.ano?.takeIf { it > 0 } ?: item.ano
+                (anos?.let { ano in it } ?: true) &&
+                    (idadeMax?.let { max -> d != null && d.idade in 0..max } ?: true) &&
+                    (notaMin <= 0 || (d != null && d.nota >= notaMin))
+            }
+        }
+        // O mesmo filme em duas pastas ("A Guerra dos Mundos" e "A Guerra dos
+        // Mundos (2025)") aparece uma vez só. Nos favoritos fica como foi marcado.
+        if (tipo != FAVORITOS) {
+            val vistosAqui = HashSet<String>()
+            lista = lista.filter { item ->
+                val d = InfoDosTitulos.de(item.alvo.titulo, item.alvo.serie)
+                val ano = d?.ano?.takeIf { it > 0 } ?: item.ano
+                val base = Vod.normalizar(ANO.replace(item.alvo.titulo, ""))
+                vistosAqui.add("${item.alvo.serie}|$base|$ano")
+            }
+        }
+        lista = when (ordem) {
+            Ordem.AZ -> lista.sortedBy { it.ordem }
+            Ordem.NOVOS -> lista.sortedWith(compareByDescending<Item> {
+                InfoDosTitulos.de(it.alvo.titulo, it.alvo.serie)?.ano?.takeIf { a -> a > 0 } ?: it.ano }.thenBy { it.ordem })
+            Ordem.MELHORES -> lista.sortedWith(compareByDescending<Item> {
+                InfoDosTitulos.de(it.alvo.titulo, it.alvo.serie)?.nota ?: 0f }.thenBy { it.ordem })
+            Ordem.POPULARES -> lista.sortedWith(compareByDescending<Item> {
+                InfoDosTitulos.de(it.alvo.titulo, it.alvo.serie)?.popularidade ?: 0 }.thenBy { it.ordem })
+        }
         vistos = lista
         adaptador.notifyDataSetChanged()
         findViewById<TextView>(R.id.gradeContagem).text =
-            resources.getQuantityString(R.plurals.vod_titulos, lista.size, lista.size)
+            // Em português "0 títulos" é plural; o milhar leva ponto (4.344).
+            resources.getQuantityString(R.plurals.vod_titulos, if (lista.size == 1) 1 else 2,
+                java.text.NumberFormat.getIntegerInstance(Locale("pt", "BR")).format(lista.size))
         // Acervo sem dados (sem endereço, ou endereço que não carregou).
         val semAcervo = todos.isEmpty() && tipo != FAVORITOS && tipo != EXTRAS
         if (semAcervo) {
@@ -188,9 +233,64 @@ class GradeActivity : TelaComMenu() {
             visibility = if (Generos.todos.isEmpty() || tipo == FAVORITOS || tipo == EXTRAS) View.GONE else View.VISIBLE
         }
         findViewById<TextView>(R.id.gradeOrdem).apply {
-            text = getString(R.string.grade_ordem, getString(if (novosPrimeiro) R.string.grade_novos else R.string.grade_az))
+            text = getString(R.string.grade_ordem, getString(when (ordem) {
+                Ordem.AZ -> R.string.grade_az
+                Ordem.NOVOS -> R.string.grade_novos
+                Ordem.MELHORES -> R.string.grade_melhores
+                Ordem.POPULARES -> R.string.grade_populares
+            }))
             Icones.fim(this, R.drawable.ic_dropdown)
         }
+        val comFiltros = InfoDosTitulos.prontos && tipo != FAVORITOS && tipo != EXTRAS
+        findViewById<TextView>(R.id.gradeAno).apply {
+            text = getString(R.string.grade_ano, rotuloAnos.ifEmpty { getString(R.string.vod_todos) })
+            Icones.fim(this, R.drawable.ic_dropdown)
+            visibility = if (comFiltros) View.VISIBLE else View.GONE
+        }
+        findViewById<TextView>(R.id.gradeIdade).apply {
+            text = getString(R.string.grade_idade, when (val m = idadeMax) {
+                null -> getString(R.string.vod_todos)
+                0 -> getString(R.string.grade_livre)
+                else -> getString(R.string.grade_ate_idade, m)
+            })
+            Icones.fim(this, R.drawable.ic_dropdown)
+            visibility = if (comFiltros) View.VISIBLE else View.GONE
+        }
+        findViewById<TextView>(R.id.gradeNota).apply {
+            text = getString(R.string.grade_nota, if (notaMin > 0) getString(R.string.grade_nota_min, notaMin) else getString(R.string.grade_qualquer))
+            Icones.fim(this, R.drawable.ic_dropdown)
+            visibility = if (comFiltros) View.VISIBLE else View.GONE
+        }
+    }
+
+    private fun escolherAno() {
+        val atual = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
+        val opcoes = mutableListOf<Pair<String, IntRange?>>(getString(R.string.vod_todos) to null)
+        for (a in atual downTo atual - 2) opcoes += a.toString() to a..a
+        val decadaAtual = atual / 10 * 10
+        opcoes += "$decadaAtual–${atual - 3}" to decadaAtual..(atual - 3)
+        for (d in (decadaAtual - 10) downTo 1990 step 10) opcoes += getString(R.string.grade_decada, d) to d..(d + 9)
+        opcoes += getString(R.string.grade_antes_1990) to 1..1989
+        Painel.mostrar(this, getString(R.string.grade_ano, "").trim(' ', ':'), opcoes.filter { it.second == null || !it.second!!.isEmpty() }.map { (rotulo, faixa) ->
+            Painel.Item(rotulo, marcado = anos == faixa) {
+                anos = faixa; rotuloAnos = if (faixa == null) "" else rotulo; aplicar()
+            }
+        })
+    }
+
+    private fun escolherIdade() {
+        val opcoes = listOf<Pair<String, Int?>>(getString(R.string.vod_todos) to null, getString(R.string.grade_livre) to 0) +
+            listOf(10, 12, 14, 16).map { getString(R.string.grade_ate_idade, it) to it }
+        Painel.mostrar(this, getString(R.string.grade_idade, "").trim(' ', ':'), opcoes.map { (rotulo, idade) ->
+            Painel.Item(rotulo, marcado = idadeMax == idade) { idadeMax = idade; aplicar() }
+        })
+    }
+
+    private fun escolherNota() {
+        val opcoes = listOf(0 to getString(R.string.grade_qualquer)) + listOf(6, 7, 8).map { it to getString(R.string.grade_nota_min, it) }
+        Painel.mostrar(this, getString(R.string.grade_nota, "").trim(' ', ':'), opcoes.map { (n, rotulo) ->
+            Painel.Item(rotulo, marcado = notaMin == n) { notaMin = n; aplicar() }
+        })
     }
 
     private fun escolherGenero() {

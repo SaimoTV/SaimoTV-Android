@@ -109,8 +109,8 @@
     <string name="vod_sumiu">"%1$s" não está mais no acervo.</string>
     <string name="vod_vazio">Nada aqui</string>
     <plurals name="vod_titulos">
-        <item quantity="one">%1$d título</item>
-        <item quantity="other">%1$d títulos</item>
+        <item quantity="one">%1$s título</item>
+        <item quantity="other">%1$s títulos</item>
     </plurals>
     <plurals name="vod_fontes">
         <item quantity="one">%1$d fonte</item>
@@ -279,6 +279,17 @@
     <string name="grade_ordem">Ordem: %1$s</string>
     <string name="grade_az">A–Z</string>
     <string name="grade_novos">Mais novos</string>
+    <string name="grade_melhores">Mais bem avaliados</string>
+    <string name="grade_populares">Mais populares</string>
+    <string name="grade_ano">Ano: %1$s</string>
+    <string name="grade_idade">Idade: %1$s</string>
+    <string name="grade_nota">Nota: %1$s</string>
+    <string name="grade_qualquer">Qualquer</string>
+    <string name="grade_livre">Livre</string>
+    <string name="grade_ate_idade">Até %1$d anos</string>
+    <string name="grade_nota_min">%1$d ou mais</string>
+    <string name="grade_antes_1990">Antes de 1990</string>
+    <string name="grade_decada">Anos %1$d</string>
     <string name="grade_vazio_favoritos">Nada nos favoritos ainda.\nSegure OK num título para favoritar.</string>
     <string name="busca_dica">Buscar filmes, séries, canais…</string>
     <string name="busca_ajuda">Dica: com teclado, é só digitar. Erros de digitação e falta de acento não atrapalham.</string>
@@ -293,8 +304,8 @@
     <string name="busca_apagar">Apagar</string>
     <string name="busca_limpar">limpar</string>
     <string name="pagina_lancamentos">Lançamentos</string>
-    <string name="pagina_explorar">Explorar</string>
-    <string name="pagina_todos_az">Todos de A a Z</string>
+    <string name="pagina_explorar">Filtrar e explorar</string>
+    <string name="pagina_todos_az">Todos, com filtros</string>
     <string name="pagina_ver_mais">Ver todos</string>
     <string name="ondemand_categorias">Categorias</string>
     <string name="radios_recentes">Ouvidas por último</string>

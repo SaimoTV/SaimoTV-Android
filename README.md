@@ -66,8 +66,12 @@ nem o endereço.
   da embedtv, os jogos dos canais de streaming (CazéTV, Disney+, Prime,
   Paramount+, GOAT, ge tv, N Sports, SportyNet) vêm do monitor (`/v1/eventos`),
   sem repetir os que a embedtv já tem.
-- Páginas de Filmes/Séries/Animes/Doramas com fileiras e um "Explorar" de A a Z
-  com filtro de gênero e ordenação.
+- Páginas de Filmes/Séries/Animes/Doramas com fileiras e, na segunda fileira,
+  "Filtrar e explorar": a grade inteira com filtros de gênero, ano, idade
+  (classificação indicativa), nota mínima e ordem (mais novos, A a Z, mais bem
+  avaliados, mais populares), cada um num painel lateral. Os dados vêm do
+  `detalhes.txt` do catálogo (`InfoDosTitulos.kt`); títulos repetidos em duas
+  pastas aparecem uma vez só.
 - Busca única (canais, filmes, séries, atores) com teclado na tela, voz,
   tolerância a erro de digitação e histórico.
 - Ícones Material em tudo (nada de emoji, que vira quadrado em box antigo).
