@@ -16,9 +16,14 @@ import org.json.JSONObject
  *               pos e dur em milissegundos; em = quando foi visto (ms desde 1970)
  *   favTitulos: {tipo, titulo, ano, letra}
  *   favCanais:  nome do canal
+ *   listas:     {canais, filmes, em, minhas: [{nome, link}]} — os dois endereços
+ *               (em = quando foram escolhidos, ms) e as listas adicionadas por link
  *
  * Progresso: vale o mais recente. Favoritos: os dois lados ficam com a união
- * (desmarcar num aparelho não desmarca no outro).
+ * (desmarcar num aparelho não desmarca no outro). Endereços: vale o escolhido
+ * por último; quem nunca escolheu (padrão ou vazio) fica com o que o outro
+ * escolheu. Listas adicionadas: união pelo link (a que veio de arquivo fica
+ * só no aparelho).
  */
 object SincroniaConnect {
 
@@ -64,11 +69,59 @@ object SincroniaConnect {
             put("progresso", progresso)
             put("favTitulos", favTitulos)
             put("favCanais", favCanais)
+            put("listas", JSONObject().apply {
+                put("canais", Enderecos.canais.orEmpty())
+                put("filmes", Enderecos.filmes.orEmpty())
+                put("em", Enderecos.escolhidosEm(context))
+                put("minhas", JSONArray().apply {
+                    for (l in MinhasListas.todas()) {
+                        val link = l.link ?: continue
+                        put(JSONObject().put("nome", l.nome).put("link", link))
+                    }
+                })
+            })
         }
     }
 
+    /** Os endereços e as listas adicionadas que vieram do celular. */
+    private suspend fun aplicarListas(context: Context, l: JSONObject) {
+        val em = l.optLong("em")
+        val local = Enderecos.escolhidosEm(context)
+        fun ler(chave: String): String? = l.optString(chave).takeIf { it.isNotBlank() }?.let { Enderecos.normalizar(it) }
+        if (l.has("canais") && l.has("filmes")) {
+            val canais = ler("canais")
+            val filmes = ler("filmes")
+            var c = Enderecos.canais
+            var f = Enderecos.filmes
+            if (em > local) {
+                c = canais; f = filmes
+            } else if (local == 0L) {
+                // Aqui nunca se escolheu nada: fica o que o celular escolheu,
+                // sem trocar um endereço próprio por um padrão.
+                fun fraco(v: String?, padrao: String) = v == null || v == padrao
+                if (fraco(c, Enderecos.PADRAO_CANAIS) && !fraco(canais, Enderecos.PADRAO_CANAIS)) c = canais
+                if (fraco(f, Enderecos.PADRAO_FILMES) && !fraco(filmes, Enderecos.PADRAO_FILMES)) f = filmes
+            }
+            if (c != Enderecos.canais || f != Enderecos.filmes) {
+                Enderecos.definir(context, c, f, if (em > local) em else System.currentTimeMillis())
+                Listas.recarregar(context)
+            }
+        }
+        val minhas = l.optJSONArray("minhas") ?: return
+        var novas = 0
+        for (i in 0 until minhas.length()) {
+            val m = minhas.optJSONObject(i) ?: continue
+            val link = m.optString("link").trim()
+            if (!(link.startsWith("http://") || link.startsWith("https://"))) continue
+            if (MinhasListas.todas().any { it.link == link }) continue
+            runCatching { MinhasListas.adicionar(m.optString("nome"), link, MinhasListas.baixar(link)) }
+                .onSuccess { novas++ }
+        }
+        if (novas > 0) runCatching { Remote.refresh(context, forcar = false) }
+    }
+
     /** Junta o que veio do celular ao que a TV tem. */
-    fun aplicar(context: Context, json: JSONObject) {
+    suspend fun aplicar(context: Context, json: JSONObject) {
         val prefs = context.getSharedPreferences(ARQUIVO, Context.MODE_PRIVATE)
         val editor = prefs.edit()
         val lista = json.optJSONArray("progresso") ?: JSONArray()
@@ -115,5 +168,7 @@ object SincroniaConnect {
             val nome = canais.optString(i).takeIf { it.isNotBlank() } ?: continue
             if (!Favorites.contains(nome)) Favorites.toggle(context, nome)
         }
+
+        json.optJSONObject("listas")?.let { runCatching { aplicarListas(context, it) } }
     }
 }

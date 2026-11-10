@@ -21,6 +21,9 @@ object Enderecos {
     private const val CANAIS = "linkCanais"
     private const val FILMES = "linkFilmes"
     private const val MIGRADO = "migradoSemListas"
+    /// Quando os endereços foram escolhidos (ms; 0 = nunca). Na sincronia
+    /// com o celular pelo Saimo Connect vale o mais recente.
+    private const val EM = "linksEm"
 
     /// Os únicos dois endereços embutidos: valem enquanto a pessoa não trocar.
     const val PADRAO_CANAIS = "https://canais-saimo.pages.dev/"
@@ -56,7 +59,11 @@ object Enderecos {
      * Guarda os endereços (já normalizados; nulo apaga). Quem mudou tem os
      * dados antigos apagados do cache.
      */
-    fun definir(context: Context, novoCanais: String?, novoFilmes: String?) {
+    fun escolhidosEm(context: Context): Long =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getLong(EM, 0L)
+
+    fun definir(context: Context, novoCanais: String?, novoFilmes: String?,
+                em: Long = System.currentTimeMillis()) {
         val mudouCanais = novoCanais != canais
         val mudouFilmes = novoFilmes != filmes
         canais = novoCanais
@@ -64,14 +71,18 @@ object Enderecos {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().apply {
             putString(CANAIS, novoCanais.orEmpty())
             putString(FILMES, novoFilmes.orEmpty())
+            putLong(EM, em)
         }.apply()
         if (mudouCanais) apagarDadosDeCanais(context)
         if (mudouFilmes) apagarDadosDeFilmes(context)
+        Connect.avisarMudancaLocal(context, 1000)
     }
 
     /** Volta aos dois endereços de fábrica. */
     fun restaurarPadrao(context: Context) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(CANAIS).remove(FILMES).apply()
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(CANAIS).remove(FILMES)
+            .putLong(EM, System.currentTimeMillis()).apply()
+        Connect.avisarMudancaLocal(context, 1000)
         val mudouCanais = canais != PADRAO_CANAIS
         val mudouFilmes = filmes != PADRAO_FILMES
         canais = PADRAO_CANAIS

@@ -256,6 +256,7 @@ object MinhasListas {
         val id = novoId()
         gravarCanais(id, canais)
         gravarIndice(listas + Lista(id, nomeLivre(nome), link?.trim(), System.currentTimeMillis(), true, canais.size))
+        Connect.avisarMudancaLocal(app, 1000)
     }
 
     /** Troca os canais de uma lista que já existe (atualização). */

@@ -270,6 +270,7 @@ Detecção de "pouca memória" em `Aparelho.kt` (isLowRamDevice ou até 1,5 GB).
 | `Remote`, `Catalog`, `FontesDesativadas` | lista de canais publicada |
 | `Telemetria` | contagem anônima de uso (desligável nos Ajustes) |
 | `Connect`, `ConnectHls`, `Sincronia` | Saimo Connect: controle pelo celular (porta 8999, `/info`, `/ws`) e o som no celular sincronizado (abaixo) |
+| `SincroniaConnect` | Sincronia pelo Saimo Connect (`{"t":"dados"}`, mesmo formato na TV Box, Mac, Windows e celular): ao conectar e a cada mudança vão onde parou em filmes e episódios, títulos favoritos, canais favoritos, os dois endereços das listas (vale o escolhido por último; quem nunca escolheu fica com o do outro aparelho) e as listas adicionadas por link (união; a que veio de arquivo fica só no aparelho). |
 
 ## Telemetria por amostra
 
