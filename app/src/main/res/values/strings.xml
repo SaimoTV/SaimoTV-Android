@@ -410,7 +410,7 @@
     <string name="connect_ip_pin">No celular, toque no ícone de Cast ou digite o IP: %1$s | PIN: %2$s</string>
     <!-- Endereço das listas (primeira abertura e Ajustes > Listas) -->
     <string name="listas_titulo">Endereço das listas</string>
-    <string name="listas_texto">Troque o endereço da lista de canais ou o da lista de filmes e séries, se precisar.</string>
+    <string name="listas_texto">Informe o endereço da lista de canais e o da lista de filmes e séries do Saimo.</string>
     <string name="listas_texto_ajustes">Deixe um campo em branco para desativar aquela lista.</string>
     <string name="listas_restaurar">Restaurar padrão</string>
     <string name="listas_canais">Canais</string>
@@ -434,19 +434,24 @@
     <string name="listas_em_branco">desativada</string>
 
     <!-- Estados vazios: sem endereço, ou endereço que não carregou -->
-    <string name="vazio_canais">Nenhum canal. Informe o endereço da lista de canais em Ajustes &gt; Listas.</string>
-    <string name="vazio_filmes">Nenhum filme ou série. Informe o endereço da lista de filmes e séries em Ajustes &gt; Listas.</string>
+    <string name="vazio_canais">Nenhum canal ainda. Adicione uma lista M3U, uma lista com usuário e senha ou o endereço de uma lista do Saimo.</string>
+    <string name="vazio_filmes">Nenhum filme ou série ainda. Informe o endereço de uma lista de filmes e séries do Saimo em Ajustes &gt; Listas.</string>
     <string name="vazio_radios">Nenhuma rádio. Informe o endereço da lista de canais em Ajustes &gt; Listas.</string>
     <string name="vazio_guia">Sem guia de programação. Informe o endereço da lista de canais em Ajustes &gt; Listas.</string>
-    <string name="vazio_inicio">Nada por aqui ainda. Informe o endereço da lista de canais e o da lista de filmes e séries em Ajustes &gt; Listas.</string>
+    <string name="vazio_inicio">Bem-vindo ao Saimo! Para começar, adicione uma lista M3U, uma lista com usuário e senha ou o endereço de uma lista do Saimo.</string>
     <string name="vazio_falhou">Não consegui carregar a lista. Confira o endereço em Ajustes &gt; Listas.</string>
-    <string name="vazio_botao">Informar endereço</string>
+    <string name="vazio_botao">Adicionar lista (M3U ou usuário e senha)</string>
+    <string name="vazio_botao_saimo">Informar endereços de lista do Saimo</string>
     <string name="ajustes_minhas_listas">Minhas listas</string>
     <string name="ml_texto">Cole o link de uma lista .m3u ou escolha um arquivo. Ela fica só neste aparelho.</string>
-    <string name="ml_titulo_link">Adicionar lista por link</string>
-    <string name="ml_link">Link da lista (.m3u)</string>
+    <string name="ml_titulo_link">Adicionar lista</string>
+    <string name="ml_link">Link da lista (M3U) ou servidor</string>
+    <string name="ml_usuario">Usuário — opcional (deixe em branco se a sua lista é só um link)</string>
+    <string name="ml_senha">Senha — opcional</string>
+    <string name="ml_servidor_invalido">Esse servidor não parece um endereço válido</string>
+    <string name="ml_falta_usuario_senha">Usuário e senha andam juntos: preencha os dois, ou deixe os dois em branco se a lista é só um link</string>
     <string name="ml_nome">Nome (opcional)</string>
     <string name="ml_adicionar">Adicionar</string>
     <string name="ml_baixando">Baixando a lista…</string>
-    <string name="ml_celular_dica">Ou escreva o link pelo celular (Saimo Connect).</string>
+    <string name="ml_celular_dica">Cole o link da sua lista M3U: só isso já basta. Usuário e senha são opcionais, para listas que pedem login. Dá para escrever pelo celular (Saimo Connect).</string>
 </resources>

@@ -125,12 +125,19 @@ object MinhasListasTela {
         }, subtitulo = "Arquivos .m3u, .m3u8 e .m3 das pastas Download e Documents") { }
     }
 
-    private fun mostrarLink(activity: Activity, escolherArquivo: (String?) -> Unit, aoMudar: () -> Unit) {
+    /** Primeira lista da pessoa (tela vazia): o diálogo de link/servidor, sem passar por Ajustes. */
+    fun adicionarPorLink(activity: Activity, aoMudar: () -> Unit) =
+        mostrarLink(activity, {}, aoMudar, voltarAoPainel = false)
+
+    private fun mostrarLink(activity: Activity, escolherArquivo: (String?) -> Unit, aoMudar: () -> Unit,
+                            voltarAoPainel: Boolean = true) {
         if (activity.isFinishing || activity.isDestroyed) return
         val dialogo = Dialog(activity, android.R.style.Theme_Translucent_NoTitleBar)
         val vista = LayoutInflater.from(activity).inflate(R.layout.dialogo_minha_lista, null)
         val campoLink = vista.findViewById<EditText>(R.id.mlLink)
         val campoNome = vista.findViewById<EditText>(R.id.mlNome)
+        val campoUsuario = vista.findViewById<EditText>(R.id.mlUsuario)
+        val campoSenha = vista.findViewById<EditText>(R.id.mlSenha)
         val mensagem = vista.findViewById<TextView>(R.id.mlMensagem)
         val progresso = vista.findViewById<ProgressBar>(R.id.mlProgresso)
         val adicionar = vista.findViewById<TextView>(R.id.mlAdicionar)
@@ -140,7 +147,7 @@ object MinhasListasTela {
 
         // O celular escreve no campo em que a pessoa está.
         var atual: EditText = campoLink
-        for (campo in listOf(campoLink, campoNome)) {
+        for (campo in listOf(campoLink, campoUsuario, campoSenha, campoNome)) {
             campo.setOnFocusChangeListener { _, foco ->
                 if (foco) {
                     atual = campo
@@ -165,7 +172,24 @@ object MinhasListasTela {
         var ocupado = false
         adicionar.setOnClickListener {
             if (ocupado) return@setOnClickListener
-            val link = campoLink.text.toString().trim()
+            val digitado = campoLink.text.toString().trim()
+            val usuario = campoUsuario.text.toString().trim()
+            val senha = campoSenha.text.toString()
+            // Com usuário e senha, o campo de cima é o servidor; sem eles, é o link da lista.
+            if ((usuario.isEmpty()) != (senha.isEmpty())) {
+                erro(activity.getString(R.string.ml_falta_usuario_senha))
+                (if (usuario.isEmpty()) campoUsuario else campoSenha).requestFocus()
+                return@setOnClickListener
+            }
+            val link = if (usuario.isNotEmpty()) {
+                val servidor = Xtream.normalizarServidor(digitado)
+                if (servidor == null) {
+                    erro(activity.getString(R.string.ml_servidor_invalido))
+                    campoLink.requestFocus()
+                    return@setOnClickListener
+                }
+                Xtream.linkM3u(servidor, usuario, senha)
+            } else digitado
             val dono = activity as? LifecycleOwner ?: return@setOnClickListener
             ocupado = true
             mensagem.visibility = View.GONE
@@ -179,7 +203,9 @@ object MinhasListasTela {
                     MinhasListas.adicionar(campoNome.text.toString(), link, canais)
                     Toast.makeText(activity, "Lista adicionada: ${canais.size} canais", Toast.LENGTH_LONG).show()
                     dialogo.dismiss()
-                    if (!activity.isFinishing && !activity.isDestroyed) reabrir(activity, escolherArquivo, aoMudar)
+                    if (!activity.isFinishing && !activity.isDestroyed) {
+                        if (voltarAoPainel) reabrir(activity, escolherArquivo, aoMudar) else aoMudar()
+                    }
                 } catch (e: MinhasListas.Erro) {
                     erro(e.message ?: "Não consegui baixar essa lista")
                     campoLink.requestFocus()

@@ -158,6 +158,9 @@ object MinhasListas {
         return base + fora
     }
 
+    /** Os canais que o Ao vivo mostra: a lista publicada (se há) mais as listas da pessoa. */
+    fun canaisDaTela(): List<Channel> = somar(Unlock.channels(), Unlock.unlocked)
+
     // MARK: - Ações
 
     private fun novoId() = "l" + java.util.UUID.randomUUID().toString().replace("-", "").take(8)
@@ -175,6 +178,8 @@ object MinhasListas {
         if (!url.startsWith("http://", true) && !url.startsWith("https://", true)) {
             throw Erro("O link precisa começar com http:// ou https://")
         }
+        // Conta com usuário e senha (Xtream): lê pela API do servidor.
+        Xtream.deLink(url)?.let { return@withContext Xtream.canais(it) }
         val texto = try {
             val cliente = Playback.client.newBuilder().callTimeout(30, TimeUnit.SECONDS).followRedirects(true).build()
             val pedido = Request.Builder().url(url).header("User-Agent", UA_VLC).build()

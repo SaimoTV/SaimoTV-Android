@@ -274,6 +274,7 @@ class EscolhaActivity : TelaComMenu(), Connect.Listener {
             // A fileira ainda não desenhou as capas: tenta de novo no próximo
             // quadro, em vez de largar o foco no menu.
             if (tentativas > 0) filas.postDelayed({ focarPrimeiro(tentativas - 1) }, 60)
+            else if (vazioVisivel()) focarBotaoDoVazio()
             else MenuGlobal.focar(barraMenu, Aba.INICIO)
         }
     }
@@ -306,8 +307,10 @@ class EscolhaActivity : TelaComMenu(), Connect.Listener {
     private fun mostrarFilas(lista: List<Inicio.Fila>) {
         if (isFinishing || isDestroyed) return
         if (lista.isEmpty()) {
-            mostrarVazio(getString(if (Enderecos.temAlgum) R.string.vazio_falhou else R.string.vazio_inicio))
+            mostrarVazio(getString(if (Enderecos.temAlgum || MinhasListas.todas().isNotEmpty()) R.string.vazio_falhou else R.string.vazio_inicio))
             cabecalhoPadrao()
+            // Atrás da abertura animada o foco não chega; quando ela sai, vai ao botão.
+            quandoAberturaAcabar { focarBotaoDoVazio() }
         } else esconderVazio()
         // Refazer as fileiras recria as capas e o foco escaparia para o menu.
         // Nos primeiros segundos (a pessoa ainda não mexeu), ele volta à
@@ -354,12 +357,14 @@ class EscolhaActivity : TelaComMenu(), Connect.Listener {
 
     /** Os canais favoritos — ou os abertos — com o que passa agora. */
     private fun aoVivo(): Inicio.Fila? {
-        val todos = Remote.channels
+        val todos = MinhasListas.somar(Remote.channels, false)
         if (todos.isEmpty()) return null
         val ultimo = todos.firstOrNull { it.name == Preferencias.ultimoCanal }
         val favoritos = todos.filter { Favorites.contains(it.name) }
         val escolhidos = (listOfNotNull(ultimo) + favoritos.ifEmpty {
-            todos.filter { Categorias.de(it) == "TV Aberta" }
+            // Sem favoritos: a TV aberta; e, se a lista não tem (as listas da
+            // própria pessoa), os primeiros canais dela.
+            todos.filter { Categorias.de(it) == "TV Aberta" }.ifEmpty { todos }
         }).distinct().take(16)
         val agora = System.currentTimeMillis()
         return Inicio.Fila(getString(R.string.inicio_ao_vivo_agora), escolhidos.map { canal ->

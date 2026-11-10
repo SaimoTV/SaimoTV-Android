@@ -34,4 +34,11 @@
         android:layout_marginTop="28dp"
         android:layout_marginEnd="0dp"
         android:text="@string/vazio_botao" />
+
+    <TextView
+        android:id="@+id/vazioBotaoSaimo"
+        style="@style/BotaoListas"
+        android:layout_marginTop="14dp"
+        android:layout_marginEnd="0dp"
+        android:text="@string/vazio_botao_saimo" />
 </LinearLayout>

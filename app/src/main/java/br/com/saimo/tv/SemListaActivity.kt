@@ -32,11 +32,11 @@ class SemListaActivity : TelaComMenu() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_sem_lista)
         mostrarVazio(getString(
-            if (aba == Aba.AO_VIVO && Enderecos.canais != null) R.string.vazio_falhou else R.string.vazio_canais))
+            if (aba == Aba.AO_VIVO && (Enderecos.canais != null || MinhasListas.todas().isNotEmpty())) R.string.vazio_falhou else R.string.vazio_canais))
     }
 
     override fun aoMudarListas() {
-        if (Remote.channels.isNotEmpty() && aba == Aba.AO_VIVO) {
+        if (MinhasListas.canaisDaTela().isNotEmpty() && aba == Aba.AO_VIVO) {
             startActivity(Intent(this, MainActivity::class.java))
             finish()
         } else {

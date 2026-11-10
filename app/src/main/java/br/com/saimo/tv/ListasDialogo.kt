@@ -18,8 +18,8 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 
 /**
- * "Endereço das listas" (Ajustes > Listas): onde a pessoa troca, desativa
- * (campo em branco) ou restaura o padrão dos endereços das duas listas. Nunca
+ * "Endereço das listas" (Ajustes > Listas): onde a pessoa informa, troca ou
+ * desativa (campo em branco) os endereços das duas listas. Nunca
  * aparece sozinho. Tudo
  * pelo controle: cima/baixo anda entre os campos e botões, OK num campo abre o
  * teclado e VOLTAR fecha. Digitar link no controle é penoso, então enquanto o
@@ -47,17 +47,6 @@ object ListasDialogo {
 
         texto.text = activity.getString(R.string.listas_texto) + "\n" + activity.getString(R.string.listas_texto_ajustes)
         fechar.setText(R.string.listas_cancelar)
-        val restaurar = vista.findViewById<TextView>(R.id.listasRestaurar)
-        Icones.inicio(restaurar, R.drawable.ic_replay)
-        restaurar.setOnClickListener {
-            Enderecos.restaurarPadrao(activity.applicationContext)
-            dialogo.dismiss()
-            Toast.makeText(activity, R.string.listas_salvo, Toast.LENGTH_SHORT).show()
-            val dono = activity as? LifecycleOwner
-            if (dono == null) aoMudar() else dono.lifecycleScope.launch(semDerrubar) {
-                Listas.recarregar(activity.applicationContext); aoMudar()
-            }
-        }
         Icones.inicio(salvar, R.drawable.ic_check)
         Icones.inicio(tentar, R.drawable.ic_replay)
         Icones.inicio(mesmoAssim, R.drawable.ic_check)

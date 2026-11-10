@@ -96,11 +96,10 @@ object SincroniaConnect {
             if (em > local) {
                 c = canais; f = filmes
             } else if (local == 0L) {
-                // Aqui nunca se escolheu nada: fica o que o celular escolheu,
-                // sem trocar um endereço próprio por um padrão.
-                fun fraco(v: String?, padrao: String) = v == null || v == padrao
-                if (fraco(c, Enderecos.PADRAO_CANAIS) && !fraco(canais, Enderecos.PADRAO_CANAIS)) c = canais
-                if (fraco(f, Enderecos.PADRAO_FILMES) && !fraco(filmes, Enderecos.PADRAO_FILMES)) f = filmes
+                // Aqui nunca se escolheu nada: fica o que o celular escolheu
+                // (e um endereço que o celular não tem não apaga o daqui).
+                if (canais != null) c = canais
+                if (filmes != null) f = filmes
             }
             if (c != Enderecos.canais || f != Enderecos.filmes) {
                 Enderecos.definir(context, c, f, if (em > local) em else System.currentTimeMillis())

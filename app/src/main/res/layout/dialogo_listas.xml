@@ -120,11 +120,6 @@
                 android:visibility="gone" />
 
             <TextView
-                android:id="@+id/listasRestaurar"
-                style="@style/BotaoListas"
-                android:text="@string/listas_restaurar" />
-
-            <TextView
                 android:id="@+id/listasFechar"
                 style="@style/BotaoListas"
                 android:text="@string/listas_agora_nao" />

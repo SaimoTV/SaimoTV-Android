@@ -12,18 +12,33 @@ O APK sai no mesmo release dos outros apps (página de releases do repositório
 [SaimoPlayer](https://github.com/gabrielsaimo/SaimoPlayer)).
 
 **App sem listas:** o app não traz canal, filme, rádio nem tabela de guia
-nenhuma (nem em código, nem em recursos). Só dois endereços-base, ativos de
-fábrica e únicos em `Enderecos.kt` (`PADRAO_CANAIS` e `PADRAO_FILMES`); em
-**Ajustes > Listas** dá para trocá-los (com teste de `catalogo.txt` /
-`indice.txt`), **desativar** uma lista (campo em branco: estado vazio e nenhum
-pedido de rede) ou **Restaurar padrão**. Desde a 2.8.0 o endereço de fábrica de quem nunca escolheu fica gravado nas preferências (`Enderecos.iniciar`, sem mudar `linksEm`). Os campos aceitam texto do celular pelo
-Saimo Connect. O endereço é normalizado (`Enderecos.normalizar`).
-- Endereço dos canais: `catalogo.txt`, `canais.txt`, `restritos.txt`,
-  `radios.txt` e `guia.txt` (tabelas do guia: códigos meuguia/guiadetv, apelidos,
-  feeds XMLTV, Pluto; ver `GuiaTabelas.kt`). Seção de cada canal = `categoria:`
-  do catálogo; sem categoria, "Outros".
-- Endereço dos filmes: espelho da pasta `vod/` (índices, fichas, destaques etc.).
-- Na primeira execução desta versão os caches de listas antigos são apagados.
+nenhuma, nem endereço de lista (nem em código, nem em recursos). Na primeira
+abertura a tela mostra "Bem-vindo ao Saimo!" e o controle vai direto aos botões:
+
+- **Adicionar lista (M3U ou usuário e senha):** um link **M3U** (só ele já basta) ou
+  **servidor + usuário + senha** (Xtream; usuário e senha são opcionais, só para
+  listas que pedem login). Cole direto um link `…/get.php?username=…&password=…`
+  e o app o reconhece como conta Xtream (`Xtream.kt`): lê os canais pela API do
+  servidor (`player_api.php`, com as categorias) ou, se ela não responde, pelo
+  M3U. Cada canal ganha as fontes `.m3u8` e `.ts`. A conta é guardada como esse
+  link, então viaja pelo Saimo Connect como qualquer outra lista. Os canais entram
+  no Ao vivo, na Busca, no Guia e nos Eventos (`MinhasListas.canaisDaTela`).
+  Testes: `XtreamTest`, `LeitorM3uTest`.
+- **Informar endereços de lista do Saimo:** em **Ajustes > Listas**, os dois
+  endereços-base no formato do Saimo (com teste de `catalogo.txt` / `indice.txt`),
+  sem padrão de fábrica; campo em branco desativa a lista (nenhum pedido de rede).
+  Quem já usava um endereço o mantém. Os campos aceitam texto do celular pelo
+  Saimo Connect. O endereço é normalizado (`Enderecos.normalizar`). Na sincronia
+  pelo Saimo Connect, quem nunca escolheu (`linksEm` 0) adota o que o outro enviou.
+- Endereço dos canais (formato do Saimo): `catalogo.txt`, `canais.txt`,
+  `restritos.txt`, `radios.txt` e `guia.txt` (tabelas do guia: códigos
+  meuguia/guiadetv, apelidos, feeds XMLTV, Pluto; ver `GuiaTabelas.kt`). Seção de
+  cada canal = `categoria:` do catálogo; sem categoria, "Outros".
+- Endereço dos filmes (formato do Saimo): espelho da pasta `vod/` (índices,
+  fichas, destaques etc.). Filmes e séries das listas da própria pessoa ainda não
+  entram no On Demand: por ora as listas da pessoa alimentam o Ao vivo.
+- O controle chega aos botões da tela vazia (o conteúdo vazio por baixo não toma
+  o foco): `MenuGlobal.mostrarVazio`.
 
 **Atualização:** o app lê o `versao.json` anexado à última release (`Atualizacao.URL_VERSAO`, independente das listas)
 (`arquivos.tvbox`) e oferece a versão na

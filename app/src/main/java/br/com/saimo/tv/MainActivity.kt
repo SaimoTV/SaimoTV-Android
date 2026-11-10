@@ -198,7 +198,7 @@ class MainActivity : AppCompatActivity(), Connect.Listener, Painel.Ouvinte {
         // que tocar: a aba abre vazia, com o atalho para os endereços.
         if (intent.getStringExtra(EXTRA_RADIO_URL) == null) {
             if (Remote.channels.isEmpty() && Enderecos.canais != null) Remote.loadCached(this)
-            if (Remote.channels.isEmpty()) {
+            if (MinhasListas.canaisDaTela().isEmpty()) {
                 SemListaActivity.abrir(this, Aba.AO_VIVO)
                 semCanais = true
                 finish()

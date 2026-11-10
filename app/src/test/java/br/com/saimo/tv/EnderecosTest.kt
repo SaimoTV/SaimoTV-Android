@@ -61,10 +61,4 @@ class EnderecosTest {
         val uma = n("exemplo.dev/listas/catalogo.txt")!!
         assertEquals(uma, n(uma))
     }
-
-    @Test
-    fun `os padroes ja estao normalizados`() {
-        assertEquals(Enderecos.PADRAO_CANAIS, n(Enderecos.PADRAO_CANAIS))
-        assertEquals(Enderecos.PADRAO_FILMES, n(Enderecos.PADRAO_FILMES))
-    }
 }

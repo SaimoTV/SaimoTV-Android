@@ -52,6 +52,58 @@
             android:importantForAutofill="no"
             android:inputType="textUri"
             android:maxLines="1"
+            android:nextFocusDown="@+id/mlUsuario"
+            android:padding="14dp"
+            android:singleLine="true"
+            android:textColor="@color/text_primary"
+            android:textColorHint="@color/text_faint"
+            android:textSize="20sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/ml_usuario"
+            android:textColor="@color/accent"
+            android:textSize="16sp" />
+
+        <EditText
+            android:id="@+id/mlUsuario"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:background="@drawable/bg_campo"
+            android:hint="@string/ml_usuario"
+            android:imeOptions="actionNext|flagNoExtractUi"
+            android:importantForAutofill="no"
+            android:inputType="text"
+            android:maxLines="1"
+            android:nextFocusDown="@+id/mlSenha"
+            android:padding="14dp"
+            android:singleLine="true"
+            android:textColor="@color/text_primary"
+            android:textColorHint="@color/text_faint"
+            android:textSize="20sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/ml_senha"
+            android:textColor="@color/accent"
+            android:textSize="16sp" />
+
+        <EditText
+            android:id="@+id/mlSenha"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:background="@drawable/bg_campo"
+            android:hint="@string/ml_senha"
+            android:imeOptions="actionNext|flagNoExtractUi"
+            android:importantForAutofill="no"
+            android:inputType="textPassword"
+            android:maxLines="1"
             android:nextFocusDown="@+id/mlNome"
             android:padding="14dp"
             android:singleLine="true"

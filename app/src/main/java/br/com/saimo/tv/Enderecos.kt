@@ -8,12 +8,14 @@ import java.io.File
 import java.util.concurrent.TimeUnit
 
 /**
- * Os dois endereços das listas, digitados por quem usa o app.
+ * Os dois endereços das listas no formato do Saimo (canais, e filmes e séries),
+ * informados por quem usa o app.
  *
- * O app não carrega lista nenhuma: só dois endereços-base ([PADRAO_CANAIS] e
- * [PADRAO_FILMES]), ativos de fábrica, e concatena o nome do arquivo. Em
- * Ajustes > Listas a pessoa troca, desativa (valor vazio) ou restaura o padrão.
- * Lista desativada não faz nenhum pedido de rede.
+ * O app não traz endereço nenhum: sem um endereço (ou sem uma lista própria
+ * em "Minhas listas") as telas ficam vazias e pedem uma lista. Em Ajustes >
+ * Listas a pessoa informa, troca ou desativa (valor vazio) cada endereço. Lista
+ * sem endereço não faz nenhum pedido de rede. Quem já usava um endereço o tem
+ * gravado nas preferências e continua com ele.
  */
 object Enderecos {
 
@@ -24,10 +26,6 @@ object Enderecos {
     /// Quando os endereços foram escolhidos (ms; 0 = nunca). Na sincronia
     /// com o celular pelo Saimo Connect vale o mais recente.
     private const val EM = "linksEm"
-
-    /// Os únicos dois endereços embutidos: valem enquanto a pessoa não trocar.
-    const val PADRAO_CANAIS = "https://canais-saimo.pages.dev/"
-    const val PADRAO_FILMES = "https://filmes-saimo.pages.dev/"
 
     /// Base já normalizada (termina em `/`), ou nulo quando não há endereço.
     @Volatile
@@ -43,19 +41,9 @@ object Enderecos {
     /** Chamado uma vez, na criação do app, antes de qualquer tela. */
     fun iniciar(context: Context) {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        // Valor guardado (mesmo vazio = desativada) vale; ausente = padrão.
-        canais = if (prefs.contains(CANAIS)) normalizar(prefs.getString(CANAIS, "").orEmpty()) else PADRAO_CANAIS
-        filmes = if (prefs.contains(FILMES)) normalizar(prefs.getString(FILMES, "").orEmpty()) else PADRAO_FILMES
-        // 2.8.0: quem nunca escolheu fica com o endereço de fábrica GUARDADO, e
-        // não só implícito no código. Quem desativou (valor vazio) segue
-        // desativado, e a data da escolha não muda (a sincronia com o celular
-        // não enxerga isto como uma escolha nova).
-        if (!prefs.contains(CANAIS) || !prefs.contains(FILMES)) {
-            prefs.edit().apply {
-                if (!prefs.contains(CANAIS)) putString(CANAIS, PADRAO_CANAIS)
-                if (!prefs.contains(FILMES)) putString(FILMES, PADRAO_FILMES)
-            }.apply()
-        }
+        // Valor guardado vale (vazio = desativada); sem valor, não há endereço.
+        canais = normalizar(prefs.getString(CANAIS, "").orEmpty())
+        filmes = normalizar(prefs.getString(FILMES, "").orEmpty())
         if (!prefs.getBoolean(MIGRADO, false)) {
             // Versões anteriores baixavam as listas de endereços fixos. Quem
             // atualiza começa vazio: favoritos, progresso e ajustes ficam.
@@ -86,19 +74,6 @@ object Enderecos {
         if (mudouCanais) apagarDadosDeCanais(context)
         if (mudouFilmes) apagarDadosDeFilmes(context)
         Connect.avisarMudancaLocal(context, 1000)
-    }
-
-    /** Volta aos dois endereços de fábrica. */
-    fun restaurarPadrao(context: Context) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(CANAIS, PADRAO_CANAIS).putString(FILMES, PADRAO_FILMES)
-            .putLong(EM, System.currentTimeMillis()).apply()
-        Connect.avisarMudancaLocal(context, 1000)
-        val mudouCanais = canais != PADRAO_CANAIS
-        val mudouFilmes = filmes != PADRAO_FILMES
-        canais = PADRAO_CANAIS
-        filmes = PADRAO_FILMES
-        if (mudouCanais) apagarDadosDeCanais(context)
-        if (mudouFilmes) apagarDadosDeFilmes(context)
     }
 
     /** Catálogo, restritos, rádios, guia e o que foi montado em cima deles. */

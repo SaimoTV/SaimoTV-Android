@@ -92,7 +92,7 @@ class GuideActivity : TelaComMenu() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // Sem canal nenhum não há guia para mostrar (o Ao vivo nem abre).
-        if (Remote.channels.isEmpty()) {
+        if (MinhasListas.canaisDaTela().isEmpty()) {
             setResult(Activity.RESULT_CANCELED)
             finish()
             return
@@ -107,7 +107,7 @@ class GuideActivity : TelaComMenu() {
         // A mesma lista e a mesma numeração do Ao vivo: sem os canais que o
         // painel desligou, e com o número fixo de cada canal. Antes a grade
         // numerava pela posição e o UFC Fight Pass era 328 num e 340 no outro.
-        channels = FontesDesativadas.peneirarCanais(Categorias.ordenar(Unlock.channels()))
+        channels = FontesDesativadas.peneirarCanais(Categorias.ordenar(MinhasListas.canaisDaTela()))
         val numeros = Categorias.ordenarFixo(channels).mapIndexed { i, c -> c.name to i + 1 }.toMap()
         val startAt = intent.getStringExtra(EXTRA_CHANNEL)
             ?.let { name -> channels.indexOfFirst { it.name == name } }

@@ -98,6 +98,11 @@ class EventosActivity : TelaComMenu() {
                     if (Remote.channels.isEmpty()) Remote.refresh(this@EventosActivity)
                 }
             }
+            // Sem nenhuma lista (nem do Saimo nem da pessoa) não há canal para
+            // os jogos: mostra o estado vazio, com os botões de adicionar lista.
+            if (MinhasListas.canaisDaTela().isEmpty()) {
+                mostrarVazio(getString(R.string.vazio_canais))
+            } else esconderVazio()
             var abrindo = true
             while (isActive) {
                 val primeira = abrindo
@@ -365,8 +370,9 @@ class EventosActivity : TelaComMenu() {
     private fun canalDo(url: String): Channel? {
         val slug = url.substringAfterLast("/").lowercase(Locale.ROOT).replace("-", "").replace(" ", "")
         if (slug.isBlank()) return null
-        return Remote.channels.firstOrNull { it.name.lowercase(Locale.ROOT).replace(" ", "") == slug }
-            ?: Remote.channels.firstOrNull { it.name.lowercase(Locale.ROOT).replace(" ", "").contains(slug) }
+        val canais = MinhasListas.somar(Remote.channels, false)
+        return canais.firstOrNull { it.name.lowercase(Locale.ROOT).replace(" ", "") == slug }
+            ?: canais.firstOrNull { it.name.lowercase(Locale.ROOT).replace(" ", "").contains(slug) }
     }
 
     private data class Placar(
