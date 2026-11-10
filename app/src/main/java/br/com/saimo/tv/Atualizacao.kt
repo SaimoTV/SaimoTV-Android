@@ -27,8 +27,9 @@ import java.io.File
 @UnstableApi
 object Atualizacao {
 
-    /// O único endereço de atualização, fixo: não depende das listas do usuário.
-    const val URL_VERSAO = "https://canais-saimo.pages.dev/versao.json"
+    /// O único endereço de atualização, fixo: o versao.json anexado à última
+    /// release. Não depende de nenhum endereço de lista.
+    const val URL_VERSAO = "https://github.com/SaimoTV/saimo-downloads/releases/latest/download/versao.json"
 
     private const val ARQUIVO = "atualizacao"
     private const val PULADA = "pulada"

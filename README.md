@@ -16,7 +16,7 @@ nenhuma (nem em código, nem em recursos). Só dois endereços-base, ativos de
 fábrica e únicos em `Enderecos.kt` (`PADRAO_CANAIS` e `PADRAO_FILMES`); em
 **Ajustes > Listas** dá para trocá-los (com teste de `catalogo.txt` /
 `indice.txt`), **desativar** uma lista (campo em branco: estado vazio e nenhum
-pedido de rede) ou **Restaurar padrão**. Os campos aceitam texto do celular pelo
+pedido de rede) ou **Restaurar padrão**. Desde a 2.8.0 o endereço de fábrica de quem nunca escolheu fica gravado nas preferências (`Enderecos.iniciar`, sem mudar `linksEm`). Os campos aceitam texto do celular pelo
 Saimo Connect. O endereço é normalizado (`Enderecos.normalizar`).
 - Endereço dos canais: `catalogo.txt`, `canais.txt`, `restritos.txt`,
   `radios.txt` e `guia.txt` (tabelas do guia: códigos meuguia/guiadetv, apelidos,
@@ -25,7 +25,7 @@ Saimo Connect. O endereço é normalizado (`Enderecos.normalizar`).
 - Endereço dos filmes: espelho da pasta `vod/` (índices, fichas, destaques etc.).
 - Na primeira execução desta versão os caches de listas antigos são apagados.
 
-**Atualização:** o app lê `https://canais-saimo.pages.dev/versao.json`
+**Atualização:** o app lê o `versao.json` anexado à última release (`Atualizacao.URL_VERSAO`, independente das listas)
 (`arquivos.tvbox`) e oferece a versão na
 tela. Só aceita download `https` de `github.com/<dono>/<repo>/releases/download/…`
 (ou dos hosts de redirecionamento `objects.githubusercontent.com` e

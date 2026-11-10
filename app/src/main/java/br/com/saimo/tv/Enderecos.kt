@@ -46,6 +46,16 @@ object Enderecos {
         // Valor guardado (mesmo vazio = desativada) vale; ausente = padrão.
         canais = if (prefs.contains(CANAIS)) normalizar(prefs.getString(CANAIS, "").orEmpty()) else PADRAO_CANAIS
         filmes = if (prefs.contains(FILMES)) normalizar(prefs.getString(FILMES, "").orEmpty()) else PADRAO_FILMES
+        // 2.8.0: quem nunca escolheu fica com o endereço de fábrica GUARDADO, e
+        // não só implícito no código. Quem desativou (valor vazio) segue
+        // desativado, e a data da escolha não muda (a sincronia com o celular
+        // não enxerga isto como uma escolha nova).
+        if (!prefs.contains(CANAIS) || !prefs.contains(FILMES)) {
+            prefs.edit().apply {
+                if (!prefs.contains(CANAIS)) putString(CANAIS, PADRAO_CANAIS)
+                if (!prefs.contains(FILMES)) putString(FILMES, PADRAO_FILMES)
+            }.apply()
+        }
         if (!prefs.getBoolean(MIGRADO, false)) {
             // Versões anteriores baixavam as listas de endereços fixos. Quem
             // atualiza começa vazio: favoritos, progresso e ajustes ficam.
@@ -80,7 +90,7 @@ object Enderecos {
 
     /** Volta aos dois endereços de fábrica. */
     fun restaurarPadrao(context: Context) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(CANAIS).remove(FILMES)
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(CANAIS, PADRAO_CANAIS).putString(FILMES, PADRAO_FILMES)
             .putLong(EM, System.currentTimeMillis()).apply()
         Connect.avisarMudancaLocal(context, 1000)
         val mudouCanais = canais != PADRAO_CANAIS
