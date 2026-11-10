@@ -316,7 +316,7 @@
     <string name="eventos_proximos">Próximos dias</string>
     <string name="eventos_amanha_as">amanhã %1$s</string>
     <string name="eventos_dica">No canal %1$s · OK assiste</string>
-    <string name="eventos_erro">Não deu para carregar a agenda agora. Tentando de novo em um minuto.</string>
+    <string name="eventos_erro">Não deu para carregar a agenda agora. Tentando de novo em instantes.</string>
     <string name="eventos_nenhum">Nenhum jogo nos canais da lista agora. A agenda se atualiza sozinha.</string>
     <plurals name="eventos_resumo">
         <item quantity="one">%1$d jogo nos canais da lista · %2$d ao vivo</item>

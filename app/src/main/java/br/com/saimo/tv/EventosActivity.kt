@@ -89,6 +89,15 @@ class EventosActivity : TelaComMenu() {
         // (a agenda do monitor, que custa, só a cada três — ver [doMonitor]).
         // Fora da tela (onStop) nada é buscado.
         atualizando = lifecycleScope.launch(semDerrubar) {
+            // A tela não depende do Ao vivo ter sido aberto: sem canais na
+            // memória (app reaberto direto aqui, TV Box ainda lendo o disco),
+            // lê a lista guardada; sem ela, baixa.
+            withContext(Dispatchers.IO) {
+                runCatching {
+                    if (Remote.channels.isEmpty()) Remote.loadCached(this@EventosActivity)
+                    if (Remote.channels.isEmpty()) Remote.refresh(this@EventosActivity)
+                }
+            }
             var abrindo = true
             while (isActive) {
                 val primeira = abrindo
@@ -97,7 +106,8 @@ class EventosActivity : TelaComMenu() {
                 if (jogos == null && !montou) {
                     destaque.padrao(getString(R.string.menu_eventos), getString(R.string.eventos_erro))
                 } else if (jogos != null) mostrar(jogos)
-                delay(60_000)
+                // Sem nada na tela, tenta de novo logo; com jogos, a cada minuto.
+                delay(if (montou) 60_000 else 15_000)
             }
         }
     }
@@ -192,15 +202,46 @@ class EventosActivity : TelaComMenu() {
 
     // MARK: - Dados
 
-    /** Prazo de 8 s: a embedtv às vezes não responde, e a tela não espera por ela. */
+    /**
+     * Como no Mac: o DNS do aparelho primeiro e o DNS-over-HTTPS dos canais só
+     * quando ele não acha o nome. Antes era o contrário, e numa rede em que o
+     * 1.1.1.1 demora a espera dele comia os 8 s do pedido: a agenda nunca
+     * chegava e a tela ficava sem jogos, enquanto o Mac mostrava.
+     */
     private val clienteEventos by lazy {
-        Playback.client.newBuilder().callTimeout(8, java.util.concurrent.TimeUnit.SECONDS).build()
+        val reserva = Playback.client.dns
+        Playback.client.newBuilder()
+            .dns(object : okhttp3.Dns {
+                override fun lookup(hostname: String): List<java.net.InetAddress> =
+                    runCatching { okhttp3.Dns.SYSTEM.lookup(hostname) }.getOrNull()?.takeIf { it.isNotEmpty() }
+                        ?: reserva.lookup(hostname)
+            })
+            .connectTimeout(8, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+            .callTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+            .build()
     }
 
     private fun texto(url: String): String? = runCatching {
         clienteEventos.newCall(Request.Builder().url(url).header("User-Agent", Playback.DEFAULT_USER_AGENT).build())
             .execute().use { r -> if (r.isSuccessful) r.body.string() else null }
     }.getOrNull()
+
+    /**
+     * A agenda da embedtv, guardada em disco a cada vez que chega. Se ela não
+     * responde, a tela mostra a última que veio (até um dia), sem os jogos
+     * que já acabaram, em vez de ficar vazia.
+     */
+    private fun daEmbed(): String? {
+        val arquivo = java.io.File(filesDir, "eventos-agenda.json")
+        val corpo = texto(EMBED)?.takeIf { it.trimStart().startsWith("[") }
+        if (corpo != null) {
+            runCatching { arquivo.writeText(corpo) }
+            return corpo
+        }
+        val idade = System.currentTimeMillis() - arquivo.lastModified()
+        return if (arquivo.exists() && idade in 0 until 24 * 3_600_000L) runCatching { arquivo.readText() }.getOrNull() else null
+    }
 
     /**
      * A agenda do monitor, que é cobrado por pedido: no máximo uma vez a cada
@@ -218,16 +259,24 @@ class EventosActivity : TelaComMenu() {
     }
 
     private suspend fun buscar(abrindo: Boolean): List<Jogo>? = kotlinx.coroutines.coroutineScope {
-        val agenda = async { texto(EMBED) }
+        val agenda = async { daEmbed() }
         val streaming = async { doMonitor(abrindo) }
+        // A ESPN só enfeita (placar, tempo, escudo): os jogos não esperam por
+        // ela. Os pedidos correm fora deste escopo (um pedido parado não
+        // obedece ao cancelamento e prenderia a tela); passado o prazo, vale o
+        // que já chegou.
+        val chegaram = java.util.concurrent.ConcurrentLinkedQueue<String>()
         val placares = ESPN.map { liga ->
-            async { texto("https://site.api.espn.com/apis/site/v2/sports/$liga/scoreboard") }
+            ESCOPO_ESPN.async {
+                texto("https://site.api.espn.com/apis/site/v2/sports/$liga/scoreboard")?.let { chegaram += it }
+            }
         }
         val corpo = agenda.await()
         val doMonitor = streaming.await()
         // Sem a embedtv a tela continua com os jogos do monitor; só some se as duas caírem.
         if (corpo == null && doMonitor == null) return@coroutineScope null
-        val espn = placares.awaitAll().filterNotNull().flatMap { lerEspn(it) }
+        kotlinx.coroutines.withTimeoutOrNull(6_000) { placares.awaitAll() }
+        val espn = chegaram.toList().flatMap { lerEspn(it) }
         val daEmbed = corpo?.let { lerAgenda(it) }.orEmpty()
         // Jogo do monitor que a embedtv já tem (mesmos times, começo a menos de
         // meia hora) não entra de novo.
@@ -380,6 +429,7 @@ class EventosActivity : TelaComMenu() {
         const val STREAMING = "https://saimo-tv.pages.dev/eventos-extra.json"
         const val MONITOR_INTERVALO_MS = 180_000L
         const val MONITOR_AO_ABRIR_MS = 60_000L
+        val ESCOPO_ESPN = kotlinx.coroutines.CoroutineScope(Dispatchers.IO + kotlinx.coroutines.SupervisorJob())
         /// A última agenda do monitor, para reabrir a tela sem pedir de novo.
         @Volatile var monitorCorpo: String? = null
         @Volatile var monitorEm = 0L
