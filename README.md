@@ -77,10 +77,10 @@ nem o endereço.
 - On Demand como a tela inicial: destaque, cartões das quatro categorias com
   colagem de capas, fileiras e o A a Z no fim.
 - Eventos em fileiras por horário (ao vivo agora, em breve, hoje, amanhã), com
-  os escudos, o placar ao vivo da ESPN e o canal de cada jogo. Além da agenda
-  da embedtv, os jogos dos canais de streaming (CazéTV, Disney+, Prime,
-  Paramount+, GOAT, ge tv, N Sports, SportyNet) vêm do monitor (`/v1/eventos`),
-  sem repetir os que a embedtv já tem. Os jogos não dependem de todas as
+  os escudos, o placar ao vivo da ESPN e o canal de cada jogo. A agenda vem só
+  do Saimo (`eventos-extra.json`); nenhum site de streaming de terceiros é
+  consultado (desde a 3.0.1 o app não tem regra nem endereço de site de
+  terceiros: toca só o que a lista traz, com os cabeçalhos dela). Os jogos não dependem de todas as
   fontes: a ESPN só enfeita (o que não chega em 6 s fica de fora), o DNS do
   aparelho vem antes do DNS-over-HTTPS, a última agenda fica guardada em disco
   (vale por um dia, sem os jogos encerrados) e a tela lê a lista de canais
