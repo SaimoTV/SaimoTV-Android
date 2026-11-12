@@ -31,11 +31,10 @@ import kotlin.math.abs
 /**
  * Os jogos de hoje e dos próximos dias que passam em algum canal da lista.
  *
- * Três fontes: a agenda da embedtv diz em que canal cada jogo passa; a do
- * monitor traz os jogos dos canais de streaming (CazéTV, Disney+, Prime,
- * Paramount+, GOAT, ge tv, N Sports, SportyNet) que a embedtv não tem, no
- * mesmo formato e com placar; os placares da ESPN dizem se já começou, o
- * placar e o tempo de jogo, e trazem escudos melhores. Só entra jogo que tem canal — sem canal não há o que
+ * Duas fontes: a agenda do Saimo (eventos-extra.json) diz em que canal cada
+ * jogo passa; os placares da ESPN dizem se já começou, o placar e o tempo de
+ * jogo, e trazem escudos melhores. Nenhum site de streaming de terceiros é
+ * consultado. Só entra jogo que tem canal — sem canal não há o que
  * assistir —, e jogo encerrado sai.
  *
  * As fileiras são por quando: ao vivo agora, começa em breve, hoje mais tarde,
@@ -233,22 +232,6 @@ class EventosActivity : TelaComMenu() {
     }.getOrNull()
 
     /**
-     * A agenda da embedtv, guardada em disco a cada vez que chega. Se ela não
-     * responde, a tela mostra a última que veio (até um dia), sem os jogos
-     * que já acabaram, em vez de ficar vazia.
-     */
-    private fun daEmbed(): String? {
-        val arquivo = java.io.File(filesDir, "eventos-agenda.json")
-        val corpo = texto(EMBED)?.takeIf { it.trimStart().startsWith("[") }
-        if (corpo != null) {
-            runCatching { arquivo.writeText(corpo) }
-            return corpo
-        }
-        val idade = System.currentTimeMillis() - arquivo.lastModified()
-        return if (arquivo.exists() && idade in 0 until 24 * 3_600_000L) runCatching { arquivo.readText() }.getOrNull() else null
-    }
-
-    /**
      * A agenda do monitor, que é cobrado por pedido: no máximo uma vez a cada
      * três minutos, guardada entre uma tela e outra. Ao abrir a tela, busca na
      * hora se a guardada tem mais de um minuto.
@@ -264,7 +247,6 @@ class EventosActivity : TelaComMenu() {
     }
 
     private suspend fun buscar(abrindo: Boolean): List<Jogo>? = kotlinx.coroutines.coroutineScope {
-        val agenda = async { daEmbed() }
         val streaming = async { doMonitor(abrindo) }
         // A ESPN só enfeita (placar, tempo, escudo): os jogos não esperam por
         // ela. Os pedidos correm fora deste escopo (um pedido parado não
@@ -276,23 +258,10 @@ class EventosActivity : TelaComMenu() {
                 texto("https://site.api.espn.com/apis/site/v2/sports/$liga/scoreboard")?.let { chegaram += it }
             }
         }
-        val corpo = agenda.await()
-        val doMonitor = streaming.await()
-        // Sem a embedtv a tela continua com os jogos do monitor; só some se as duas caírem.
-        if (corpo == null && doMonitor == null) return@coroutineScope null
+        val doMonitor = streaming.await() ?: return@coroutineScope null
         kotlinx.coroutines.withTimeoutOrNull(6_000) { placares.awaitAll() }
         val espn = chegaram.toList().flatMap { lerEspn(it) }
-        val daEmbed = corpo?.let { lerAgenda(it) }.orEmpty()
-        // Jogo do monitor que a embedtv já tem (mesmos times, começo a menos de
-        // meia hora) não entra de novo.
-        val extras = doMonitor?.let { lerAgenda(it) }.orEmpty().filter { s ->
-            daEmbed.none { e ->
-                abs(e.inicio - s.inicio) < 1_800_000L &&
-                    ((mesmoTime(e.casa, s.casa) && mesmoTime(e.fora, s.fora)) ||
-                        (mesmoTime(e.casa, s.fora) && mesmoTime(e.fora, s.casa)))
-            }
-        }
-        (daEmbed + extras).map { jogo ->
+        lerAgenda(doMonitor).map { jogo ->
             // O mesmo jogo na ESPN: mesmos times (em qualquer ordem) e começo
             // a menos de quatro horas um do outro.
             val par = espn.firstOrNull { e ->
@@ -317,7 +286,7 @@ class EventosActivity : TelaComMenu() {
         }
     }
 
-    /** A agenda (da embedtv ou do monitor): só jogos cujo canal existe na nossa lista. */
+    /** A agenda do Saimo: só jogos cujo canal existe na nossa lista. */
     private fun lerAgenda(corpo: String): List<Jogo> {
         val iso = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US)
         val arr = runCatching { JSONArray(corpo) }.getOrNull() ?: return emptyList()
@@ -431,7 +400,6 @@ class EventosActivity : TelaComMenu() {
         /// Compiladas uma vez: cada jogo da agenda é comparado com cada jogo da ESPN.
         val ACENTOS = Regex("\\p{M}+")
         val SEPARADOR = Regex("[^a-z0-9]+")
-        const val EMBED = "https://embedtv.cc/api/events"
         const val STREAMING = "https://saimo-tv.pages.dev/eventos-extra.json"
         const val MONITOR_INTERVALO_MS = 180_000L
         const val MONITOR_AO_ABRIR_MS = 60_000L

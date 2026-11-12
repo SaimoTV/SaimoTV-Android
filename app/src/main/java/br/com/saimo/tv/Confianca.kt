@@ -33,11 +33,8 @@ object Confianca {
     /**
      * GTS Root R4 (Google Trust Services).
      *
-     * Os masters do EmbedPlayer ficam em `embedplayer2.xyz`, mas os pedaços
-     * de vídeo são distribuídos por `plosia11.xyz` até `plosia15.xyz`. Esses
-     * hosts usam certificados WE1 encadeados nesta raiz, ausente em muitos TV
-     * Box Android 5/6. O manifesto abria e a reprodução parava exatamente ao
-     * pedir o primeiro segmento mascarado como `.js`, `.css` ou `.woff`.
+     * Muitos servidores usam certificados WE1 encadeados nesta raiz, ausente
+     * em muitos TV Box Android 5/6: sem ela a conexão HTTPS falha.
      *
      * sha256 34:9D:FA:40:58:C5:E2:63:12:3B:39:8A:E7:95:57:3C:4E:13:13:C8:3F:E6:8F:93:55:6C:D5:E8:03:1B:3C:7D
      */

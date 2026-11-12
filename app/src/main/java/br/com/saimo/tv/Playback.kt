@@ -77,107 +77,7 @@ object Playback {
             return doServidor
         }
 
-        // Fallback: Se o Cloudflare Pages retornar 404 ou somenteApp, resolve direto na RedeFlix via conexão residencial
-        val direto = resolverRedeFlixDireto(url)
-        if (!direto.isNullOrBlank()) {
-            return direto
-        }
-
         return null
-    }
-
-    /**
-     * Resolve diretamente na RedeFlix a partir da conexão residencial do aparelho
-     * quando a API remota do Cloudflare Pages falhar ou for bloqueada por anti-bot.
-     */
-    fun resolverRedeFlixDireto(url: String): String? {
-        return runCatching {
-            val uri = url.toHttpUrl()
-            val id = uri.queryParameter("id")?.takeIf { it.isNotBlank() } ?: return null
-            val tipo = uri.queryParameter("tipo") ?: "movie"
-            val s = uri.queryParameter("s") ?: "1"
-            val e = uri.queryParameter("e") ?: "1"
-            val versao = uri.queryParameter("versao") ?: "dub"
-
-            val isSerie = tipo == "series" || tipo == "serie"
-            val pagina = if (isSerie) {
-                "https://redeflixapi.click/serie/$id/$s/$e"
-            } else {
-                "https://redeflixapi.click/filme/$id"
-            }
-
-            val chromeUA = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
-            val req1 = okhttp3.Request.Builder()
-                .url(pagina)
-                .header("User-Agent", chromeUA)
-                .header("Referer", "https://redeflixapi.click/")
-                .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
-                .header("Accept-Language", "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7")
-                .build()
-
-            val html = client.newCall(req1).execute().use { resp ->
-                if (!resp.isSuccessful) return null
-                resp.body?.string() ?: return null
-            }
-
-            var ticketFinal: String? = null
-            val patternFast = Regex("""fastLaunchTickets\s*=\s*(\{[^}]+\})""")
-            val match = patternFast.find(html)
-            if (match != null) {
-                val jsonStr = match.groupValues[1]
-                val tickets = runCatching { org.json.JSONObject(jsonStr) }.getOrNull()
-                if (tickets != null) {
-                    val preferidos = if (versao == "leg") listOf("legendado", "default") else listOf("default", "legendado")
-                    for (srv in preferidos) {
-                        val t = tickets.optString(srv).takeIf { it.isNotBlank() }
-                        if (t != null) {
-                            ticketFinal = t
-                            break
-                        }
-                    }
-                }
-            }
-
-            if (ticketFinal == null) {
-                val regexFallback = Regex("""playbackResolveTicket\s*=\s*['"]([^'"]+)['"]""")
-                ticketFinal = regexFallback.find(html)?.groupValues?.get(1)
-            }
-
-            if (ticketFinal == null) {
-                val regexPost = Regex("""playerkys/source\.php['"]\s*,\s*\{\s*source\s*:\s*['"]([^'"]+)['"]""")
-                ticketFinal = regexPost.find(html)?.groupValues?.get(1)
-            }
-
-            if (ticketFinal == null) return null
-
-            val jsonPayload = org.json.JSONObject().put("ticket", ticketFinal).toString()
-            val body = jsonPayload.toRequestBody("application/json; charset=utf-8".toMediaType())
-
-            val req2 = okhttp3.Request.Builder()
-                .url("https://redeflixapi.click/playerkys/source.php")
-                .header("User-Agent", chromeUA)
-                .header("Referer", pagina)
-                .header("Origin", "https://redeflixapi.click")
-                .header("Accept", "application/json, text/plain, */*")
-                .header("Content-Type", "application/json")
-                .header("X-Requested-With", "RedeFlixPlayer")
-                .post(body)
-                .build()
-
-            val jsonResp = client.newCall(req2).execute().use { resp ->
-                if (!resp.isSuccessful) return null
-                resp.body?.string() ?: return null
-            }
-
-            val obj = org.json.JSONObject(jsonResp)
-            val streamUrl = obj.optString("url").takeIf { it.isNotBlank() }
-                ?: obj.optJSONObject("data")?.optString("video_url")?.takeIf { it.isNotBlank() }
-            if (streamUrl != null && streamUrl.startsWith("http")) {
-                streamUrl
-            } else {
-                null
-            }
-        }.getOrNull()
     }
 
     /**
@@ -205,28 +105,6 @@ object Playback {
             .sslSocketFactory(Confianca.fabrica, Confianca.gerente)
             .dns(NomeValido.dns(Resolvedor(doh)))
             .addInterceptor(NomeValido.interceptor)
-            .addInterceptor { chain ->
-                val pedido = chain.request()
-                val host = pedido.url.host
-                if (host.contains("tiktokcdn.live") || host.contains("tiktokcdn.com")) {
-                    val ajustado = pedido.newBuilder()
-                        .header("Referer", "https://dadinhodetapioca.fun/")
-                        .header("Origin", "https://dadinhodetapioca.fun")
-                        .build()
-                    chain.proceed(ajustado)
-                } else {
-                    val resposta = chain.proceed(pedido)
-                    val path = pedido.url.encodedPath
-                    val isCamouflage = (host.contains("s1001604.lat") || host.contains("cloudfront-net.lat") || host.endsWith(".lat")) &&
-                        (path.endsWith(".png", ignoreCase = true) || path.endsWith(".woff", ignoreCase = true) ||
-                            path.endsWith(".css", ignoreCase = true) || path.endsWith(".js", ignoreCase = true))
-                    if (isCamouflage) {
-                        resposta.newBuilder().header("Content-Type", "video/mp2t").build()
-                    } else {
-                        resposta
-                    }
-                }
-            }
             .followRedirects(true)
             .followSslRedirects(true)
             .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
@@ -329,39 +207,13 @@ object Playback {
     }
 
     fun mediaSource(context: Context, source: Source): MediaSource {
-        val embedPlayer = runCatching {
-            Uri.parse(source.url).host?.equals("embedplayer2.xyz", ignoreCase = true) == true
-        }.getOrDefault(false)
         val cabecalhos = linkedMapOf<String, String>()
         // Todo navegador e todo player manda `Accept`; o OkHttp não manda
         // nenhum, e há servidor que trata a ausência como cliente suspeito.
-        // O EmbedPlayer, que serve os doramas e animes novos, responde 200 com
-        // o corpo "security error" no lugar da playlist — o ExoPlayer então
-        // reclama que a resposta não começa com #EXTM3U, e a fonte cai. Medido
-        // fonte a fonte: com o cabeçalho a playlist vem, sem ele não vem, e
-        // Referer e Origin não fazem diferença nenhuma.
+        // Há servidor que responde 200 com "security error" no lugar da
+        // playlist quando falta o cabeçalho, e a fonte cai.
         cabecalhos["Accept"] = "*/*"
         source.referer?.let { cabecalhos["Referer"] = it }
-        // Os segmentos de vídeo vêm de plosia*.xyz mascarados como arquivos
-        // web e são publicados para a origem do player. Enviar a origem do
-        // master também deixa o pedido consistente em aparelhos nos quais o
-        // CDN aplica a validação de hotlink.
-        if (embedPlayer && source.referer == null) {
-            cabecalhos["Referer"] = "https://embedplayer2.xyz/"
-            cabecalhos["Origin"] = "https://embedplayer2.xyz"
-        }
-        if (source.url.contains("dadinhodetapioca.fun", ignoreCase = true)) {
-            cabecalhos["Referer"] = "https://dadinhodetapioca.fun/"
-            cabecalhos["Origin"] = "https://dadinhodetapioca.fun"
-        }
-        if ((source.url.contains("cloudfront-net.lat", ignoreCase = true) || source.url.contains("s25-cloudfront-net.lat", ignoreCase = true)) && source.referer == null) {
-            cabecalhos["Referer"] = "https://w7.embedtv.cc/"
-            cabecalhos["Origin"] = "https://w7.embedtv.cc"
-        }
-        if (source.url.contains("embedtvproxy.workers.dev", ignoreCase = true) && source.referer == null) {
-            cabecalhos["Referer"] = "https://nexustvplay.bbroot.com/"
-            cabecalhos["Origin"] = "https://nexustvplay.bbroot.com"
-        }
         val upstream: DataSource.Factory = OkHttpDataSource.Factory(client)
             .setUserAgent(source.userAgent ?: DEFAULT_USER_AGENT)
             .apply {
@@ -370,8 +222,7 @@ object Playback {
             }
         val http: DataSource.Factory = ResolvingDataSource.Factory(upstream) { dataSpec ->
             val original = dataSpec.uri.toString()
-            val comDadinho = resolverDadinho(original)
-            val resolved = corrigirCaminhoDaPlaylist(source.url, comDadinho)
+            val resolved = corrigirCaminhoDaPlaylist(source.url, original)
             if (resolved == original) dataSpec else dataSpec.withUri(Uri.parse(resolved))
         }
 
@@ -460,41 +311,6 @@ object Playback {
             append(correctedPath)
             request.rawQuery?.let { append('?').append(it) }
             request.rawFragment?.let { append('#').append(it) }
-        }
-    }
-
-    private val cacheDadinho = java.util.concurrent.ConcurrentHashMap<String, Pair<Long, String>>()
-    private const val DADINHO_CACHE_TTL_MS = 90 * 60 * 1000L
-
-    internal fun obterUrlResolvida(url: String): String? {
-        val agora = android.os.SystemClock.elapsedRealtime()
-        val entry = cacheDadinho[url] ?: return null
-        return if (agora - entry.first < DADINHO_CACHE_TTL_MS) entry.second else null
-    }
-
-    internal fun resolverDadinho(url: String): String {
-        if (!url.contains("dadinhodetapioca.fun/play/", ignoreCase = true)) return url
-        val agora = android.os.SystemClock.elapsedRealtime()
-        cacheDadinho[url]?.let { (quando, resolvido) ->
-            if (agora - quando < DADINHO_CACHE_TTL_MS) return resolvido
-        }
-        return try {
-            val pedido = okhttp3.Request.Builder()
-                .url(url)
-                .header("Referer", "https://rdcanais.org/")
-                .header("User-Agent", DEFAULT_USER_AGENT)
-                .build()
-            client.newCall(pedido).execute().use { resposta ->
-                if (!resposta.isSuccessful) return url
-                val html = resposta.body?.string() ?: return url
-                val regex = """STREAM_URLS\s*=\s*\[\s*"([^"]+)"""".toRegex()
-                val match = regex.find(html) ?: return url
-                val m3u8 = match.groupValues[1].replace("\\/", "/")
-                cacheDadinho[url] = agora to m3u8
-                m3u8
-            }
-        } catch (_: Exception) {
-            url
         }
     }
 
