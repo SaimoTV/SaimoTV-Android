@@ -53,7 +53,7 @@ class EventosActivity : TelaComMenu() {
         val ligaLogo: String,
         val inicio: Long,
         val fim: Long,
-        val canal: Channel,
+        val canal: Channel?,
         /// "pre", "in" ou "post", quando a ESPN ou a agenda do monitor conhece o jogo.
         val estado: String = "",
         val placar: String = "",
@@ -99,9 +99,7 @@ class EventosActivity : TelaComMenu() {
             }
             // Sem nenhuma lista (nem do Saimo nem da pessoa) não há canal para
             // os jogos: mostra o estado vazio, com os botões de adicionar lista.
-            if (MinhasListas.canaisDaTela().isEmpty()) {
-                mostrarVazio(getString(R.string.vazio_canais))
-            } else esconderVazio()
+            esconderVazio()
             var abrindo = true
             while (isActive) {
                 val primeira = abrindo
@@ -175,13 +173,14 @@ class EventosActivity : TelaComMenu() {
         ).filter { it.isNotBlank() }.joinToString("  ·  ")
         return Inicio.Cartao(
             titulo = j.titulo, capa = "", inicial = j.casa.take(1),
-            subtitulo = listOf(j.canal.name, j.liga).filter { it.isNotBlank() }.joinToString(" · "),
+            subtitulo = listOf(j.canal?.name ?: "Sem canal", j.liga).filter { it.isNotBlank() }.joinToString(" · "),
             colagem = listOf(j.casaLogo, j.foraLogo, j.ligaLogo),
             selo = selo, seloAoVivo = aoVivo,
             meta = meta,
-            sinopse = getString(R.string.eventos_dica, j.canal.name),
+            sinopse = if (j.canal != null) getString(R.string.eventos_dica, j.canal.name) else "Sem canal",
         ) {
-            startActivity(Intent(this, MainActivity::class.java).putExtra(MainActivity.EXTRA_CANAL, j.canal.name))
+            if (j.canal == null) android.widget.Toast.makeText(this, "Sem canal", android.widget.Toast.LENGTH_SHORT).show()
+            else startActivity(Intent(this, MainActivity::class.java).putExtra(MainActivity.EXTRA_CANAL, j.canal.name))
         }
     }
 
@@ -288,14 +287,14 @@ class EventosActivity : TelaComMenu() {
 
     /** A agenda do Saimo: só jogos cujo canal existe na nossa lista. */
     private fun lerAgenda(corpo: String): List<Jogo> {
-        val iso = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US)
+        val iso = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US).apply { isLenient = false }
         val arr = runCatching { JSONArray(corpo) }.getOrNull() ?: return emptyList()
         return (0 until arr.length()).mapNotNull { i ->
             runCatching {
                 val o = arr.getJSONObject(i)
                 val players = o.optJSONArray("players")
-                val url = if (players != null && players.length() > 0) players.getString(0) else return@runCatching null
-                val canal = canalDo(url) ?: return@runCatching null
+                val url = if (players != null && players.length() > 0) players.optString(0) else ""
+                val canal = if (url.isNotBlank()) canalDo(url) else null
                 val times = o.getJSONObject("teams")
                 val casa = times.getJSONObject("home"); val fora = times.getJSONObject("away")
                 val liga = o.optJSONObject("league")
