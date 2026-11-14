@@ -327,8 +327,22 @@ open class PaginaActivity : TelaComMenu() {
         if (itens.isEmpty()) return null
         return Inicio.Fila(getString(R.string.vod_continuar), itens.map { a ->
             val alvo = a.endereco!!.alvo
-            Inicio.Cartao(a.rotulo, "", a.titulo.take(1).uppercase(), progresso = a.fracao,
-                procurarCapa = a.serie, nomeDaCapa = a.titulo, alvo = alvo) {
+            Inicio.Cartao(
+                a.rotulo, "", a.titulo.take(1).uppercase(), progresso = a.fracao,
+                procurarCapa = a.serie, nomeDaCapa = a.titulo, alvo = alvo,
+                aoMenu = {
+                    Painel.mostrar(this, a.rotulo, listOf(
+                        Painel.Item(getString(R.string.inicio_abrir_ficha), icone = R.drawable.ic_info) { FichaActivity.abrir(this, alvo) },
+                        Painel.Item(getString(R.string.inicio_remover_continuar)) {
+                            Progresso.esquecer(this, a)
+                            lifecycleScope.launch(semDerrubar) { montar() }
+                        }))
+                },
+                aoRemover = {
+                    Progresso.esquecer(this, a)
+                    lifecycleScope.launch(semDerrubar) { montar() }
+                },
+            ) {
                 val (t, e) = if (a.terminado) a.temporada to a.episodio + 1 else a.temporada to a.episodio
                 PlayerActivity.abrir(this, alvo, t, e)
             }

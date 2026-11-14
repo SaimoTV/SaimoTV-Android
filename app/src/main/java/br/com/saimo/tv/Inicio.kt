@@ -54,6 +54,8 @@ object Inicio {
         val alvo: Alvo? = null,
         /// MENU sobre o cartão: favoritar, tirar do "continuar"...
         val aoMenu: (() -> Unit)? = null,
+        /// Botão × para remover diretamente de "Continue assistindo".
+        val aoRemover: (() -> Unit)? = null,
         /// Cartão de categoria: as capas da colagem, o ícone e a cor dela.
         val colagem: List<String> = emptyList(),
         val icone: Int = 0,
@@ -198,6 +200,7 @@ object Inicio {
             val nome: TextView = view.findViewById(R.id.capaNome)
             val sub: TextView? = view.findViewById(R.id.capaSub)
             val progresso: ProgressBar = view.findViewById(R.id.capaProgresso)
+            val remover: View? = view.findViewById(R.id.capaRemover)
             val colagem: List<ImageView> = listOfNotNull(
                 view.findViewById(R.id.secaoCapa1), view.findViewById(R.id.secaoCapa2),
                 view.findViewById(R.id.secaoCapa3), view.findViewById(R.id.secaoCapa4))
@@ -236,10 +239,16 @@ object Inicio {
             }
             holder.itemView.setOnKeyListener { _, codigo, evento ->
                 if (Cartoes.segurarNasPontas(holder, codigo, evento)) return@setOnKeyListener true
-                if (evento.action == KeyEvent.ACTION_DOWN &&
-                    (codigo == KeyEvent.KEYCODE_MENU || codigo == KeyEvent.KEYCODE_BOOKMARK)) {
-                    holder.cartao?.aoMenu?.let { it(); true } ?: false
-                } else false
+                if (evento.action == KeyEvent.ACTION_DOWN) {
+                    if (codigo == KeyEvent.KEYCODE_MENU || codigo == KeyEvent.KEYCODE_BOOKMARK) {
+                        return@setOnKeyListener holder.cartao?.aoMenu?.let { it(); true } ?: false
+                    }
+                    if (codigo == KeyEvent.KEYCODE_DEL || codigo == KeyEvent.KEYCODE_FORWARD_DEL ||
+                        codigo == KeyEvent.KEYCODE_PROG_RED) {
+                        return@setOnKeyListener holder.cartao?.aoRemover?.let { it(); true } ?: false
+                    }
+                }
+                false
             }
             holder.itemView.setOnLongClickListener { holder.cartao?.aoMenu?.let { it(); true } ?: false }
             return holder
@@ -252,6 +261,10 @@ object Inicio {
             holder.sub?.text = cartao.subtitulo.orEmpty()
             holder.inicial.text = cartao.inicial
             holder.itemView.setOnClickListener { cartao.aoEscolher() }
+            holder.remover?.apply {
+                visibility = if (cartao.aoRemover != null) View.VISIBLE else View.GONE
+                setOnClickListener { cartao.aoRemover?.invoke() }
+            }
 
             if (tipo == Tipo.SECAO) { secao(holder, cartao); return }
             if (tipo == Tipo.EVENTO) { evento(holder, cartao); return }

@@ -344,6 +344,10 @@ class EscolhaActivity : TelaComMenu(), Connect.Listener {
                             lifecycleScope.launch(semDerrubar) { montarFilas() }
                         }))
                 },
+                aoRemover = {
+                    Progresso.esquecer(this, a)
+                    lifecycleScope.launch(semDerrubar) { montarFilas() }
+                },
             ) {
                 if (alvo != null) {
                     val (t, e) = if (a.terminado) a.temporada to a.episodio + 1 else a.temporada to a.episodio

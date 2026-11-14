@@ -37,6 +37,25 @@
             android:scaleType="centerCrop"
             android:visibility="gone" />
 
+        <!-- Botão × para remover de Continue assistindo (toque/mouse/controle). -->
+        <TextView
+            android:id="@+id/capaRemover"
+            android:layout_width="26dp"
+            android:layout_height="26dp"
+            android:layout_gravity="top|end"
+            android:layout_margin="6dp"
+            android:background="@drawable/bg_remover_continuar"
+            android:clickable="true"
+            android:contentDescription="@string/inicio_remover_continuar"
+            android:focusable="false"
+            android:gravity="center"
+            android:includeFontPadding="false"
+            android:text="×"
+            android:textColor="@android:color/white"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+
         <!-- Onde o filme parou, na borda de baixo da capa. -->
         <ProgressBar
             android:id="@+id/capaProgresso"

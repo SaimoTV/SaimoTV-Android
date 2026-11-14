@@ -98,12 +98,27 @@ object Progresso {
         editor.apply()
     }
 
-    /** Tira o título do "continuar": é o "remover da fileira" do controle. */
+    /** Tira o título do "continuar": é o "remover da fileira" do controle ou do botão ×. */
     fun esquecer(context: Context, andamento: Andamento) {
-        val editor = prefs(context).edit()
-        if (andamento.serie) editor.remove("u|${andamento.nome}").remove("u|${andamento.nome}|t")
-        editor.remove(andamento.chave).remove("${andamento.chave}|d").remove("${andamento.chave}|t")
-        editor.apply()
+        val prefs = prefs(context)
+        val editor = prefs.edit()
+        if (andamento.serie) {
+            val nome = andamento.nome
+            editor.remove("u|$nome").remove("u|$nome|t")
+            val prefixoEp = "s|$nome|"
+            for (k in prefs.all.keys) {
+                if (k.startsWith(prefixoEp) || k.startsWith("m|$prefixoEp") || k.startsWith("v|$prefixoEp")) {
+                    editor.remove(k)
+                }
+            }
+        }
+        editor
+            .remove(andamento.chave)
+            .remove("${andamento.chave}|d")
+            .remove("${andamento.chave}|t")
+            .remove("m|${andamento.chave}")
+            .remove("v|${andamento.chave}")
+            .apply()
     }
 
     /**
