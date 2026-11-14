@@ -293,8 +293,16 @@ class EventosActivity : TelaComMenu() {
             runCatching {
                 val o = arr.getJSONObject(i)
                 val players = o.optJSONArray("players")
-                val url = if (players != null && players.length() > 0) players.optString(0) else ""
-                val canal = if (url.isNotBlank()) canalDo(url) else null
+                var canal: Channel? = null
+                if (players != null) {
+                    for (j in 0 until players.length()) {
+                        val url = players.optString(j)
+                        if (url.isNotBlank()) {
+                            canal = canalDo(url)
+                            if (canal != null) break
+                        }
+                    }
+                }
                 val times = o.getJSONObject("teams")
                 val casa = times.getJSONObject("home"); val fora = times.getJSONObject("away")
                 val liga = o.optJSONObject("league")
@@ -334,13 +342,21 @@ class EventosActivity : TelaComMenu() {
         return url.substring(0, inicio) + ajustes + url.substring(fim)
     }
 
+    private fun limparNomeCanal(texto: String): String {
+        val semAcento = java.text.Normalizer.normalize(texto, java.text.Normalizer.Form.NFD)
+            .replace(Regex("\\p{InCombiningDiacriticalMarks}+"), "")
+            .lowercase(Locale.ROOT)
+        val ignorar = setOf("", "fhd", "uhd", "4k", "hd", "sd", "h265", "hevc", "br", "pt", "tv")
+        return semAcento.split(Regex("[^a-z0-9]+")).filter { it !in ignorar }.joinToString("")
+    }
+
     /** O canal pelo fim do endereço do player ("…/premiere-fc" → Premiere FC). */
     private fun canalDo(url: String): Channel? {
-        val slug = url.substringAfterLast("/").lowercase(Locale.ROOT).replace("-", "").replace(" ", "")
+        val slug = limparNomeCanal(url.substringAfterLast("/"))
         if (slug.isBlank()) return null
         val canais = MinhasListas.somar(Remote.channels, false)
-        return canais.firstOrNull { it.name.lowercase(Locale.ROOT).replace(" ", "") == slug }
-            ?: canais.firstOrNull { it.name.lowercase(Locale.ROOT).replace(" ", "").contains(slug) }
+        return canais.firstOrNull { limparNomeCanal(it.name) == slug }
+            ?: canais.firstOrNull { limparNomeCanal(it.name).contains(slug) }
     }
 
     private data class Placar(
