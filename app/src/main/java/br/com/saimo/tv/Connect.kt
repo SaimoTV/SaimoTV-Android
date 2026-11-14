@@ -534,11 +534,41 @@ object Connect {
                 return
             }
 
+            // 1c. Painel web LAN de Addons e Debrid (GET /addons, GET /api/addons, POST /addons)
+            if (primeiraLinha.startsWith("GET /addons")) {
+                ConnectAddons.responderGetHtml(context, output)
+                try { socket.shutdownOutput() } catch (_: Exception) {}
+                try { socket.close() } catch (_: Exception) {}
+                return
+            }
+            if (primeiraLinha.startsWith("GET /api/addons")) {
+                ConnectAddons.responderGetApi(output)
+                try { socket.shutdownOutput() } catch (_: Exception) {}
+                try { socket.close() } catch (_: Exception) {}
+                return
+            }
+            if (primeiraLinha.startsWith("POST /addons")) {
+                val lenMatch = "Content-Length:\\s*(\\d+)".toRegex(RegexOption.IGNORE_CASE).find(requisicao)
+                val tamanho = (lenMatch?.groupValues?.get(1)?.toIntOrNull() ?: 0).coerceIn(0, 1_048_576)
+                val corpoBytes = ByteArray(tamanho)
+                var pos = 0
+                while (pos < tamanho) {
+                    val r = input.read(corpoBytes, pos, tamanho - pos)
+                    if (r <= 0) break
+                    pos += r
+                }
+                val corpo = String(corpoBytes, 0, pos, StandardCharsets.UTF_8)
+                ConnectAddons.responderPost(context, corpo, output)
+                try { socket.shutdownOutput() } catch (_: Exception) {}
+                try { socket.close() } catch (_: Exception) {}
+                return
+            }
+
             // OPTIONS para CORS pré-voo
             if (primeiraLinha.startsWith("OPTIONS")) {
                 val resposta = "HTTP/1.1 204 No Content\r\n" +
                         "Access-Control-Allow-Origin: *\r\n" +
-                        "Access-Control-Allow-Methods: GET, OPTIONS\r\n" +
+                        "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n" +
                         "Access-Control-Allow-Headers: *\r\n" +
                         "Connection: close\r\n\r\n"
                 output.write(resposta.toByteArray(StandardCharsets.UTF_8))

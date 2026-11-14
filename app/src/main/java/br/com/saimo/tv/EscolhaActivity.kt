@@ -160,10 +160,17 @@ class EscolhaActivity : TelaComMenu(), Connect.Listener {
         jaIniciou = true
     }
 
+    private var addonsVersaoVista = AddonsStore.versao.value
+
     override fun onResume() {
         super.onResume()
         Connect.listener = this
         Connect.notificarMudancaDeEstado()
+        val atual = AddonsStore.versao.value
+        if (atual != addonsVersaoVista) {
+            addonsVersaoVista = atual
+            lifecycleScope.launch(semDerrubar) { montarFilas() }
+        }
     }
 
     override fun onPause() {
@@ -301,13 +308,20 @@ class EscolhaActivity : TelaComMenu(), Connect.Listener {
             val cartoes = fila.itens.map { cartaoDe(it) }
             if (cartoes.isNotEmpty()) lista += Inicio.Fila(fila.titulo, cartoes)
         }
+        if (AddonsStore.temAtivo()) {
+            for (fila in AddonsService.carregarFilasCatalogo(this)) {
+                if (fila.cartoes.isNotEmpty()) lista += fila
+            }
+        }
+        addonsVersaoVista = AddonsStore.versao.value
         mostrarFilas(lista)
     }
 
     private fun mostrarFilas(lista: List<Inicio.Fila>) {
         if (isFinishing || isDestroyed) return
         if (lista.isEmpty()) {
-            mostrarVazio(getString(if (Enderecos.temAlgum || MinhasListas.todas().isNotEmpty()) R.string.vazio_falhou else R.string.vazio_inicio))
+            val temFonte = Enderecos.temAlgum || MinhasListas.todas().isNotEmpty() || AddonsStore.temAtivo()
+            mostrarVazio(getString(if (temFonte) R.string.vazio_falhou else R.string.vazio_inicio))
             cabecalhoPadrao()
             // Atrás da abertura animada o foco não chega; quando ela sai, vai ao botão.
             quandoAberturaAcabar { focarBotaoDoVazio() }

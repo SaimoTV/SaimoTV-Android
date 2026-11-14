@@ -17,8 +17,11 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.ForwardingPlayer
@@ -159,6 +162,7 @@ class PlayerActivity : AppCompatActivity(), Connect.Listener {
     /// seguinte começa por uma parecida. Vive só nesta sessão de player.
     private var preferidaServidor = ""
     private var preferidaPosicao = -1
+    private var preferidoBingeGroup: String? = null
     private var retomadas = 0
     private var tocou = false
     private var tentativaDesde = 0L
@@ -334,22 +338,38 @@ class PlayerActivity : AppCompatActivity(), Connect.Listener {
         ep = if (r.serie) {
             (if (t > 0) r.episodio(t, e) else null) ?: Titulos.ondeContinuar(this, r)
         } else null
-        // 404: se o episodio pedido for um novo lancamento que nao esta na lista local:
-        if (r.serie && r.tmdbId > 0) {
-            if (ep == null && t > 0 && e > 0) {
+        // 404 + Addons: se o episódio pedido não tiver fontes locais ainda, prepara com 404/addons
+        if (r.serie) {
+            if (ep == null && t > 0 && e > 0 && r.tmdbId > 0) {
                 val extras = Resolvedor404.fontes(r.tmdbId, serie = true, temporada = t, numero = e)
-                if (extras.isNotEmpty()) {
-                    val novoEp = Titulos.Ep(t, e, extras)
+                val addonOps = if (AddonsStore.temStreamAtivo()) {
+                    AddonsService.buscarStreams(r.tmdbId, r.imdbId, serie = true, temporada = t, episodio = e)
+                } else emptyList()
+                if (extras.isNotEmpty() || addonOps.isNotEmpty()) {
+                    val novoEp = Titulos.Ep(t, e, extras, addonOps)
                     ep = novoEp
                     r = r.copy(episodios = (r.episodios + novoEp).distinctBy { it.temporada to it.numero })
                     resolvido = r
                 }
-            } else if (ep != null && ep!!.fontes.isEmpty()) {
-                val extras = Resolvedor404.fontes(r.tmdbId, serie = true, temporada = ep!!.temporada, numero = ep!!.numero)
-                if (extras.isNotEmpty()) {
-                    val epAtualizado = Titulos.Ep(ep!!.temporada, ep!!.numero, extras)
+            } else if (ep != null && !ep!!.temFontes && (r.tmdbId > 0 || !r.imdbId.isNullOrBlank())) {
+                val curr = ep!!
+                val rBase = r
+                val (extras, addonOps) = coroutineScope {
+                    val a = async {
+                        if (rBase.tmdbId > 0) Resolvedor404.fontes(rBase.tmdbId, serie = true, temporada = curr.temporada, numero = curr.numero)
+                        else emptyMap()
+                    }
+                    val b = async {
+                        if (AddonsStore.temStreamAtivo()) {
+                            AddonsService.buscarStreams(rBase.tmdbId, rBase.imdbId, serie = true, temporada = curr.temporada, episodio = curr.numero)
+                        } else emptyList()
+                    }
+                    a.await() to b.await()
+                }
+                if (extras.isNotEmpty() || addonOps.isNotEmpty()) {
+                    val epAtualizado = Titulos.Ep(curr.temporada, curr.numero, extras, addonOps)
                     ep = epAtualizado
-                    r = r.copy(episodios = (r.episodios.filterNot { it.temporada == ep!!.temporada && it.numero == ep!!.numero } + epAtualizado))
+                    r = r.copy(episodios = r.episodios.filterNot { it.temporada == curr.temporada && it.numero == curr.numero } + epAtualizado)
                     resolvido = r
                 }
             }
@@ -362,40 +382,67 @@ class PlayerActivity : AppCompatActivity(), Connect.Listener {
     private fun comecar(pedirRetomada: Boolean, herdarFonte: Boolean = false, startTime: Long = 0L) {
         val r = resolvido ?: return
         val episodioAtual = ep
-        if (episodioAtual != null && episodioAtual.fontes.isEmpty() && r.tmdbId > 0) {
+        val precisaBuscarEpisodio = episodioAtual != null && (
+            !episodioAtual.temFontes ||
+                (AddonsStore.temStreamAtivo() && episodioAtual.opcoesExtras.isEmpty())
+            )
+        if (episodioAtual != null && precisaBuscarEpisodio && (r.tmdbId > 0 || !r.imdbId.isNullOrBlank())) {
             mostrarCarregando(getString(R.string.player_abrindo))
             lifecycleScope.launch(semDerrubar) {
-                val extras = Resolvedor404.fontes(r.tmdbId, serie = true, episodioAtual.temporada, episodioAtual.numero)
-                if (extras.isNotEmpty()) {
-                    val epAtualizado = Titulos.Ep(episodioAtual.temporada, episodioAtual.numero, extras)
+                val (extras, addonOps) = coroutineScope {
+                    val a = async {
+                        if (episodioAtual.fontes.isEmpty() && r.tmdbId > 0) {
+                            Resolvedor404.fontes(r.tmdbId, serie = true, episodioAtual.temporada, episodioAtual.numero)
+                        } else episodioAtual.fontes
+                    }
+                    val b = async {
+                        if (AddonsStore.temStreamAtivo() && episodioAtual.opcoesExtras.isEmpty()) {
+                            AddonsService.buscarStreams(r.tmdbId, r.imdbId, serie = true, episodioAtual.temporada, episodioAtual.numero)
+                        } else episodioAtual.opcoesExtras
+                    }
+                    a.await() to b.await()
+                }
+                if (extras.isNotEmpty() || addonOps.isNotEmpty()) {
+                    val epAtualizado = Titulos.Ep(episodioAtual.temporada, episodioAtual.numero, extras, addonOps)
                     ep = epAtualizado
                     val atualizados = r.episodios.map { if (it.temporada == epAtualizado.temporada && it.numero == epAtualizado.numero) epAtualizado else it }
                     val novoR = r.copy(episodios = atualizados)
                     resolvido = novoR
-                    iniciarComFontes(novoR, epAtualizado.fontes, pedirRetomada, herdarFonte, startTime)
+                    iniciarComFontes(novoR, epAtualizado.fontes, epAtualizado.opcoesExtras, pedirRetomada, herdarFonte, startTime)
                 } else {
                     desistir()
                 }
             }
             return
         }
-        val fontes = ep?.fontes ?: r.filme?.fontes ?: return
-        iniciarComFontes(r, fontes, pedirRetomada, herdarFonte, startTime)
+        val fontes = ep?.fontes ?: r.filme?.fontes ?: emptyMap()
+        val extrasAddon = ep?.opcoesExtras ?: r.opcoesAddon
+        if (fontes.isEmpty() && extrasAddon.isEmpty()) {
+            desistir()
+            return
+        }
+        iniciarComFontes(r, fontes, extrasAddon, pedirRetomada, herdarFonte, startTime)
     }
 
     private fun iniciarComFontes(
         r: Titulos.Resolvido,
         fontes: Map<String, List<String>>,
+        extrasAddon: List<Titulos.Opcao>,
         pedirRetomada: Boolean,
         herdarFonte: Boolean = false,
         startTime: Long = 0L,
     ) {
-        if (versao !in fontes.keys) versao = if (Preferencias.versao in fontes) Preferencias.versao
-                                              else fontes.keys.firstOrNull() ?: "dub"
-        opcoes = Titulos.ordem(fontes, versao)
+        val todasVersoes = (fontes.keys + extrasAddon.map { it.versao }).toSet()
+        if (versao !in todasVersoes) versao = if (Preferencias.versao in todasVersoes) Preferencias.versao
+                                            else todasVersoes.firstOrNull() ?: "dub"
+        opcoes = Titulos.mesclarOpcoes(fontes, extrasAddon, versao)
+        if (opcoes.isEmpty()) {
+            desistir()
+            return
+        }
         tentadas.clear(); semVideo = false
-        fonte = if (herdarFonte && r.serie && preferidaPosicao >= 0)
-            Titulos.preferida(opcoes, preferidaServidor, preferidaPosicao) else 0
+        fonte = if (herdarFonte && r.serie && (preferidaPosicao >= 0 || !preferidoBingeGroup.isNullOrBlank()))
+            Titulos.preferida(opcoes, preferidaServidor, preferidaPosicao, preferidoBingeGroup) else 0
         marcas = null
         legendasExt = emptyList()
         legendaExt = null
@@ -411,7 +458,7 @@ class PlayerActivity : AppCompatActivity(), Connect.Listener {
         atualizarTitulos()
         montarBotoes()
         carregarMarcas()
-        carregarLegendas()
+        carregarLegendas(opcoes.getOrNull(fonte))
 
         val retomar = if (startTime > 0) startTime * 1000L else if (pedirRetomada) Progresso.posicao(this, r.chave(ep)) else 0L
         tocarFonte(inicio = retomar, pausado = (startTime <= 0 && retomar > 0))
@@ -443,35 +490,61 @@ class PlayerActivity : AppCompatActivity(), Connect.Listener {
         }
     }
 
-    // MARK: - Legendas do OpenSubtitles
+    // MARK: - Legendas do OpenSubtitles + Addons
 
-    private fun carregarLegendas() {
+    private fun carregarLegendas(opcaoAtual: Titulos.Opcao? = opcoes.getOrNull(fonte)) {
         val r = resolvido ?: return
         val episodio = ep
+        val inline = opcaoAtual?.legendasInline.orEmpty()
+        if (inline.isNotEmpty() && legendasExt.isEmpty()) {
+            legendasExt = inline
+        }
         lifecycleScope.launch(semDerrubar) {
-            val lista = Legendas.de(r.tmdbId, r.serie, episodio?.temporada ?: 0, episodio?.numero ?: 0)
+            val lista = Legendas.deComAddons(
+                tmdbId = r.tmdbId,
+                imdbId = r.imdbId,
+                serie = r.serie,
+                temporada = episodio?.temporada ?: 0,
+                episodio = episodio?.numero ?: 0,
+                inline = inline,
+                videoHash = opcaoAtual?.videoHash,
+                videoSize = opcaoAtual?.videoSize,
+                filename = opcaoAtual?.filename,
+            )
             if (episodio != ep || lista.isEmpty()) return@launch
             legendasExt = lista
             // Quem já escolheu um idioma antes não precisa escolher de novo.
             val idioma = Preferencias.legendaExterna
             if (idioma.isNotBlank() && legendaExt == null) {
-                lista.firstOrNull { it.idioma == idioma }?.let { escolherLegendaExterna(it, guardar = false) }
+                lista.firstOrNull { it.idioma == idioma || it.bcp47.equals(idioma, ignoreCase = true) }
+                    ?.let { escolherLegendaExterna(it, guardar = false) }
             }
         }
     }
 
-    /** O vídeo, com a legenda externa ao lado quando há uma escolhida. */
+    /** O vídeo (com headers HTTP customizados quando houver) e a legenda externa ao lado. */
     private fun fonteAtual(url: String): MediaSource {
-        val base = Playback.mediaSource(this, Source(url))
+        val op = opcoes.getOrNull(fonte)
+        val headers = op?.headers.orEmpty()
+        val refererHeader = headers.entries.firstOrNull { it.key.equals("Referer", ignoreCase = true) }?.value
+        val uaHeader = headers.entries.firstOrNull { it.key.equals("User-Agent", ignoreCase = true) }?.value
+        val base = Playback.mediaSource(this, Source(url, referer = refererHeader, userAgent = uaHeader, headers = headers))
         val opcao = legendaExt ?: return base
         val srt = legendaExtSrt ?: return base
+        val vtt = srt.trimStart().startsWith("WEBVTT", ignoreCase = true)
+        val ass = !vtt && srt.contains("[Events]")
+        val (nomeArq, mime) = when {
+            vtt -> "saimo_legenda.vtt" to MimeTypes.TEXT_VTT
+            ass -> "saimo_legenda.ass" to MimeTypes.TEXT_SSA
+            else -> "saimo_legenda.srt" to MimeTypes.APPLICATION_SUBRIP
+        }
         // Salva o arquivo no cache para evitar limites de tamanho e bugs de parsing
         // do DataSchemeDataSource do ExoPlayer com base64 gigantes.
-        val arquivo = java.io.File(cacheDir, "saimo_legenda.srt")
+        val arquivo = java.io.File(cacheDir, nomeArq)
         arquivo.writeText(Legendas.deslocar(srt, legendaAtraso), Charsets.UTF_8)
         val formato = androidx.media3.common.Format.Builder()
             .setId(Legendas.ID_FAIXA)
-            .setSampleMimeType(MimeTypes.APPLICATION_SUBRIP)
+            .setSampleMimeType(mime)
             .setLanguage(opcao.bcp47)
             .setLabel(opcao.rotulo)
             .setSelectionFlags(C.SELECTION_FLAG_DEFAULT)
@@ -584,11 +657,12 @@ class PlayerActivity : AppCompatActivity(), Connect.Listener {
                 .build()
         }
 
-    private fun tocarFonte(inicio: Long, pausado: Boolean = false) {
+    private fun tocarFonte(inicio: Long, pausado: Boolean = false, manual: Boolean = false) {
         val opcao = opcoes.getOrNull(fonte) ?: run { desistir(); return }
         if (ep != null) {
-            preferidaServidor = Titulos.servidor(opcao.url)
+            preferidaServidor = if (opcao.url.isNotBlank()) Titulos.servidor(opcao.url) else ""
             preferidaPosicao = opcoes.filter { it.versao == opcao.versao }.indexOf(opcao)
+            preferidoBingeGroup = opcao.bingeGroup
         }
         val atual = player ?: novoPlayer().also {
             player = it
@@ -598,14 +672,81 @@ class PlayerActivity : AppCompatActivity(), Connect.Listener {
         tocou = false
         retomadas = 0
         tentativaDesde = SystemClock.elapsedRealtime()
+        urlTocando = null
+        handler.removeCallbacks(prazo)
+        resolucao.visibility = View.GONE
+
+        // Externo / YouTube: pula no avanço automático quando houver fonte direta, ou abre quando escolhido pelo usuário
+        if (opcao.ehExternoOuYt) {
+            val destinoExt = opcao.externalUrl?.takeIf { it.isNotBlank() }
+                ?: opcao.ytId?.takeIf { it.isNotBlank() }?.let { "https://www.youtube.com/watch?v=$it" }
+            if (!manual && opcoes.indices.any { it !in tentadas && it != fonte && !opcoes[it].ehExternoOuYt }) {
+                proximaFonte(inicio)
+                return
+            }
+            if (destinoExt != null) {
+                esconderCarregando()
+                runCatching {
+                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(destinoExt)))
+                }.onFailure {
+                    Toast.makeText(this, "Nenhum aplicativo encontrado para abrir o link externo.", Toast.LENGTH_LONG).show()
+                }
+            } else {
+                proximaFonte(inicio)
+            }
+            return
+        }
+
+        // Torrent (`infoHash`): exige provedor Debrid ativo no cliente
+        if (opcao.ehTorrent && !opcao.infoHash.isNullOrBlank()) {
+            if (!DebridStore.temAlgumAtivo()) {
+                val temOutraJogavel = opcoes.indices.any {
+                    it !in tentadas && it != fonte && !opcoes[it].ehTorrent && !opcoes[it].ehExternoOuYt
+                }
+                if (!manual && temOutraJogavel) {
+                    proximaFonte(inicio)
+                    return
+                }
+                esconderCarregando()
+                mostrarPromptDebrid(temOutraJogavel, inicio)
+                return
+            }
+            mostrarCarregando("Resolvendo torrent via Debrid…")
+            Telemetria.comecou("vod", nomeTelemetria(), "magnet:${opcao.infoHash}", fonte + 1, nova = tentadas.isEmpty())
+            selecionarLegendaExt = legendaExt != null
+            val tentativa = tentativaDesde
+            lifecycleScope.launch(semDerrubar) {
+                val res = DebridResolver.resolver(
+                    infoHash = opcao.infoHash,
+                    fileIdx = opcao.fileIdx,
+                    trackers = opcao.trackerSources,
+                    titulo = alvo.titulo,
+                )
+                if (tentativa != tentativaDesde || player !== atual) return@launch
+                when (res) {
+                    is DebridResolver.Resultado.Sucesso -> {
+                        handler.postDelayed(prazo, PRAZO_MS)
+                        iniciarFonte(atual, res.url, inicio, pausado)
+                    }
+                    is DebridResolver.Resultado.SemConfiguracao -> {
+                        esconderCarregando()
+                        mostrarPromptDebrid(temOutra = false, inicio = inicio, mensagem = res.mensagem)
+                    }
+                    is DebridResolver.Resultado.Erro -> {
+                        Telemetria.falhou("vod", nomeTelemetria(), "magnet:${opcao.infoHash}", fonte + 1, res.mensagem)
+                        Toast.makeText(this@PlayerActivity, res.mensagem, Toast.LENGTH_SHORT).show()
+                        proximaFonte(inicio)
+                    }
+                }
+            }
+            return
+        }
+
         mostrarCarregando(if (tentadas.isEmpty()) getString(R.string.player_abrindo)
                           else getString(R.string.player_outro_servidor))
         Telemetria.comecou("vod", nomeTelemetria(), opcao.url, fonte + 1, nova = tentadas.isEmpty())
         selecionarLegendaExt = legendaExt != null
-        urlTocando = null
-        handler.removeCallbacks(prazo)
         handler.postDelayed(prazo, PRAZO_MS)
-        resolucao.visibility = View.GONE
         if (!Playback.ehEnderecoDinamico(opcao.url)) {
             iniciarFonte(atual, opcao.url, inicio, pausado)
             return
@@ -624,6 +765,28 @@ class PlayerActivity : AppCompatActivity(), Connect.Listener {
             }
             iniciarFonte(atual, destino, inicio, pausado)
         }
+    }
+
+    private fun mostrarPromptDebrid(
+        temOutra: Boolean,
+        inicio: Long,
+        mensagem: String = "Esta fonte usa Torrent (infoHash) e precisa de uma chave Debrid ativa (TorBox, Real-Debrid, AllDebrid ou Premiumize).",
+    ) {
+        val dlg = AlertDialog.Builder(this)
+            .setTitle("Provedor Debrid necessário")
+            .setMessage(mensagem)
+            .setPositiveButton("Addons e Debrid") { _, _ ->
+                AddonsTela.abrir(this)
+            }
+            .apply {
+                if (temOutra) {
+                    setNegativeButton("Próxima fonte") { _, _ -> proximaFonte(inicio) }
+                } else {
+                    setNegativeButton("Fechar") { _, _ -> if (player?.playbackState == Player.STATE_IDLE) finish() }
+                }
+            }
+            .create()
+        dlg.show()
     }
 
     private fun iniciarFonte(atual: ExoPlayer, url: String, inicio: Long, pausado: Boolean) {
@@ -1164,7 +1327,9 @@ class PlayerActivity : AppCompatActivity(), Connect.Listener {
             botao(getString(R.string.player_episodios), "eps", R.drawable.ic_episodes) { painelEpisodios() }
             if (r.seguinte(atual) != null) botao(getString(R.string.player_proximo_ep), "prox", R.drawable.ic_skip_next) { irParaProximo(false) }
         }
-        val versoes = (ep?.fontes ?: r?.filme?.fontes)?.keys.orEmpty()
+        val fontes = ep?.fontes ?: r?.filme?.fontes ?: emptyMap()
+        val extrasAddon = ep?.opcoesExtras ?: r?.opcoesAddon.orEmpty()
+        val versoes = (fontes.keys + extrasAddon.map { it.versao }).toSet()
         if (versoes.size > 1) {
             botao(Titulos.rotulo(versao), "versao", R.drawable.ic_translate) { painelVersao() }
         }
@@ -1295,15 +1460,19 @@ class PlayerActivity : AppCompatActivity(), Connect.Listener {
     }
 
     private fun painelVersao() {
-        val fontes = ep?.fontes ?: resolvido?.filme?.fontes ?: return
-        Painel.mostrar(this, getString(R.string.player_versao), fontes.keys.sortedBy { if (it == "dub") 0 else 1 }.map { v ->
-            Painel.Item(Titulos.rotulo(v), getString(R.string.player_servidores_n, fontes[v].orEmpty().size),
+        val fontes = ep?.fontes ?: resolvido?.filme?.fontes ?: emptyMap()
+        val extrasAddon = ep?.opcoesExtras ?: resolvido?.opcoesAddon.orEmpty()
+        val todasVersoes = (fontes.keys + extrasAddon.map { it.versao }).toSet()
+        if (todasVersoes.isEmpty()) return
+        Painel.mostrar(this, getString(R.string.player_versao), todasVersoes.sortedBy { if (it == "dub") 0 else 1 }.map { v ->
+            val qtd = fontes[v].orEmpty().size + extrasAddon.count { it.versao == v }
+            Painel.Item(Titulos.rotulo(v), getString(R.string.player_servidores_n, qtd),
                 marcado = v == versao) {
                 if (v == versao) return@Item
                 versao = v
                 Preferencias.versao = v
                 val ponto = player?.currentPosition ?: 0L
-                opcoes = Titulos.ordem(fontes, versao)
+                opcoes = Titulos.mesclarOpcoes(fontes, extrasAddon, versao)
                 fonte = 0
                 tentadas.clear(); semVideo = false
                 atualizarTitulos()
@@ -1322,10 +1491,21 @@ class PlayerActivity : AppCompatActivity(), Connect.Listener {
      */
     private fun painelFonte() {
         Painel.mostrar(this, getString(R.string.player_fontes), opcoes.mapIndexed { i, opcao ->
-            // "Fonte N" e a versão; o servidor nunca aparece.
-            Painel.Item(getString(R.string.player_fonte_n, i + 1),
-                Titulos.rotulo(opcao.versao),
-                marcado = i == fonte) {
+            val tituloPrincipal = if (opcao.ehAddon) {
+                "${getString(R.string.player_fonte_n, i + 1)} · ${opcao.origem}"
+            } else {
+                getString(R.string.player_fonte_n, i + 1)
+            }
+            val detalhe = if (opcao.ehAddon) {
+                listOfNotNull(
+                    Titulos.rotulo(opcao.versao),
+                    opcao.titulo.takeIf { it.isNotBlank() },
+                    opcao.badges.joinToString(" ").takeIf { it.isNotBlank() },
+                ).joinToString(" · ")
+            } else {
+                Titulos.rotulo(opcao.versao)
+            }
+            Painel.Item(tituloPrincipal, detalhe, marcado = i == fonte) {
                 if (i == fonte) return@Item
                 val ponto = player?.currentPosition ?: 0L
                 fonte = i
@@ -1336,7 +1516,8 @@ class PlayerActivity : AppCompatActivity(), Connect.Listener {
                     atualizarTitulos()
                 }
                 montarBotoes()
-                tocarFonte(ponto)
+                carregarLegendas(opcao)
+                tocarFonte(ponto, manual = true)
             }
         })
     }

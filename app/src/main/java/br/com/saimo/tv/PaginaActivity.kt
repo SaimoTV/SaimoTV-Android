@@ -120,9 +120,32 @@ open class PaginaActivity : TelaComMenu() {
         val lista = mutableListOf<Inicio.Fila>()
         val destaques = Destaques.filas(this)
 
-        // Sem endereço (ou com endereço que não carregou) não há acervo: estado
-        // vazio em vez de categorias sem nada dentro.
+        // Sem endereço (ou com endereço que não carregou): destrava via Addons + TMDB quando houver addons ativos.
         if (destaques.isEmpty() && Vod.entradas(this).isEmpty()) {
+            if (AddonsStore.temAtivo()) {
+                esconderVazio()
+                continuar()?.let { lista += it }
+                if (!todos) {
+                    lista += Inicio.Fila(getString(R.string.pagina_explorar), listOf(
+                        Inicio.Cartao(getString(R.string.pagina_todos_az), "", "A–Z") {
+                            GradeActivity.abrir(this, tipo)
+                        }
+                    ))
+                } else {
+                    lista += Inicio.Fila(getString(R.string.pagina_explorar), listOf(
+                        Inicio.Cartao(getString(R.string.vod_filmes), "", "F") {
+                            GradeActivity.abrir(this, GradeActivity.FILMES)
+                        },
+                        Inicio.Cartao(getString(R.string.vod_series), "", "S") {
+                            GradeActivity.abrir(this, GradeActivity.SERIES)
+                        },
+                    ), Inicio.Tipo.SECAO)
+                }
+                val filtro = if (todos) null else serie
+                lista += AddonsService.carregarFilasCatalogo(this, filtroSerie = filtro)
+                mostrar(lista)
+                return
+            }
             val msg = getString(if (Enderecos.filmes == null) R.string.vazio_filmes else R.string.vazio_falhou)
             destaque.padrao(getString(R.string.menu_on_demand), msg)
             mostrar(emptyList())
@@ -157,6 +180,9 @@ open class PaginaActivity : TelaComMenu() {
         if (!montou) mostrar(lista)
 
         if (todos) montarTodos(lista) else montarTipo(lista)
+        if (AddonsStore.temCatalogoAtivo()) {
+            lista += AddonsService.carregarFilasCatalogo(this, filtroSerie = if (todos) null else serie)
+        }
         mostrar(lista)
     }
 

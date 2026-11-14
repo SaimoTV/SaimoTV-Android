@@ -23,9 +23,9 @@ import org.json.JSONObject
  */
 object Detalhes {
 
-    private const val CHAVE = "15d2ea6d0dc1d476efbca3eba2b9bbfb"
-    private const val BASE = "https://api.themoviedb.org/3"
-    private const val IMAGENS = "https://image.tmdb.org/t/p/"
+    internal const val CHAVE = "15d2ea6d0dc1d476efbca3eba2b9bbfb"
+    internal const val BASE = "https://api.themoviedb.org/3"
+    internal const val IMAGENS = "https://image.tmdb.org/t/p/"
 
     data class Pessoa(val id: Int, val nome: String, val papel: String, val foto: String?)
 
@@ -89,11 +89,19 @@ object Detalhes {
      * TMDB no próprio arquivo — e acertam onde o arquivo de fichas erra: o
      * anime "Kevin" casava ali com outra série de mesmo nome.
      */
-    suspend fun de(titulo: String, serie: Boolean, idConhecido: Int? = null): Ficha? =
+    suspend fun de(
+        titulo: String,
+        serie: Boolean,
+        idConhecido: Int? = null,
+        imdbId: String? = null,
+    ): Ficha? =
         withContext(Dispatchers.IO) {
-        val marca = (if (serie) "s:" else "f:") + titulo + (idConhecido?.let { "#$it" } ?: "")
+        val marca = (if (serie) "s:" else "f:") + titulo +
+            (idConhecido?.let { "#$it" } ?: imdbId?.takeIf { it.isNotBlank() }?.let { "#$it" } ?: "")
         synchronized(guardadas) { guardadas[marca] }?.let { return@withContext it }
-        val id = idConhecido?.takeIf { it > 0 } ?: Generos.id(titulo, serie)
+        val id = idConhecido?.takeIf { it > 0 }
+            ?: imdbId?.takeIf { it.isNotBlank() }?.let { IdResolver.referenciaPorImdb(it, serie)?.tmdbId }
+            ?: Generos.id(titulo, serie)
             ?: buscarId(titulo, serie)
             ?: return@withContext null
         val ficha = baixar(id, serie) ?: return@withContext null

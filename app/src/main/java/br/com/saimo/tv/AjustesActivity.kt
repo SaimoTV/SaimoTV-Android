@@ -93,6 +93,11 @@ class AjustesActivity : TelaComMenu() {
         focarQuandoPronto { lista.findViewHolderForAdapterPosition(1)?.itemView }
     }
 
+    override fun onResume() {
+        super.onResume()
+        if (::lista.isInitialized) redesenhar()
+    }
+
     private fun simNao(v: Boolean) = getString(if (v) R.string.ajustes_ligado else R.string.ajustes_desligado)
 
     private fun rotuloUpscaling(modo: String) = getString(
@@ -161,6 +166,9 @@ class AjustesActivity : TelaComMenu() {
         },
         Opcao(getString(R.string.ajustes_minhas_listas), { MinhasListas.resumo() }) {
             MinhasListasTela.mostrar(this, ::pedirArquivo) { redesenhar() }
+        },
+        Opcao(getString(R.string.ajustes_addons), { AddonsStore.resumo() }) {
+            AddonsTela.abrir(this)
         },
         Opcao(getString(R.string.ajustes_abrir_em), {
             getString(if (Preferencias.abrirEm == "canal") R.string.ajustes_abrir_canal else R.string.ajustes_abrir_inicio)

@@ -80,6 +80,42 @@ object SincroniaConnect {
                     }
                 })
             })
+        }.also { pacoteJson ->
+            anexarAddonsEDebrid(
+                pacote = pacoteJson,
+                addons = AddonsStore.exportarJsonArray(),
+                incluirDebrid = DebridStore.sincronizarConnectAtivo(),
+                debridJson = if (DebridStore.sincronizarConnectAtivo()) DebridStore.exportarJson(true) else null,
+            )
+        }
+    }
+
+    /** Anexa `addons` e (apenas quando opt-in) `debrid` ao pacote `{t:"dados"}`. */
+    fun anexarAddonsEDebrid(
+        pacote: JSONObject,
+        addons: JSONArray,
+        incluirDebrid: Boolean,
+        debridJson: JSONObject? = null,
+    ): JSONObject {
+        pacote.put("addons", addons)
+        if (incluirDebrid && debridJson != null) {
+            pacote.put("debrid", debridJson)
+        }
+        return pacote
+    }
+
+    /**
+     * Aplica `addons` (somente se o campo vier como JSONArray) e `debrid` (se presente),
+     * preservando addons locais quando o peer remoto enviar `{t:"dados"}` legado sem `"addons"`.
+     */
+    fun aplicarAddonsEDebrid(json: JSONObject) {
+        val addonsRemotos = if (json.has("addons")) json.optJSONArray("addons") else null
+        if (addonsRemotos != null) {
+            AddonsStore.mesclarDoSync(addonsRemotos)
+        }
+        val debridObj = if (json.has("debrid")) json.optJSONObject("debrid") else null
+        if (debridObj != null) {
+            DebridStore.aplicarDoSync(debridObj)
         }
     }
 
@@ -169,5 +205,6 @@ object SincroniaConnect {
         }
 
         json.optJSONObject("listas")?.let { runCatching { aplicarListas(context, it) } }
+        runCatching { aplicarAddonsEDebrid(json) }
     }
 }

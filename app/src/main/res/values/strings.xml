@@ -435,13 +435,27 @@
 
     <!-- Estados vazios: sem endereço, ou endereço que não carregou -->
     <string name="vazio_canais">Nenhum canal ainda. Adicione uma lista M3U, uma lista com usuário e senha ou o endereço de uma lista do Saimo.</string>
-    <string name="vazio_filmes">Nenhum filme ou série ainda. Informe o endereço de uma lista de filmes e séries do Saimo em Ajustes &gt; Listas.</string>
+    <string name="vazio_filmes">Nenhum filme ou série ainda. Informe uma lista do Saimo em Ajustes &gt; Listas ou adicione addons Stremio em Ajustes &gt; Addons e Debrid.</string>
     <string name="vazio_radios">Nenhuma rádio. Informe o endereço da lista de canais em Ajustes &gt; Listas.</string>
     <string name="vazio_guia">Sem guia de programação. Informe o endereço da lista de canais em Ajustes &gt; Listas.</string>
-    <string name="vazio_inicio">Bem-vindo ao Saimo! Para começar, adicione uma lista M3U, uma lista com usuário e senha ou o endereço de uma lista do Saimo.</string>
-    <string name="vazio_falhou">Não consegui carregar a lista. Confira o endereço em Ajustes &gt; Listas.</string>
+    <string name="vazio_inicio">Bem-vindo ao Saimo! Para começar, adicione uma lista M3U/Xtream, o endereço de uma lista do Saimo ou instale addons Stremio em Addons e Debrid.</string>
+    <string name="vazio_falhou">Não consegui carregar o conteúdo. Confira suas listas ou addons em Ajustes.</string>
     <string name="vazio_botao">Adicionar lista (M3U ou usuário e senha)</string>
     <string name="vazio_botao_saimo">Informar endereços de lista do Saimo</string>
+    <string name="vazio_botao_addons">Configurar Addons Stremio e Debrid</string>
+
+    <!-- Addons Stremio e Debrid -->
+    <string name="ajustes_addons">Addons e Debrid</string>
+    <string name="addons_titulo">Addons e Debrid</string>
+    <string name="addons_subtitulo">Instale addons HTTP do Stremio (manifest.json) e configure provedores Debrid na TV ou pelo celular.</string>
+    <string name="addons_qr_desc">QR Code para configurar addons na TV pelo celular</string>
+    <string name="addons_qr_dica">Escaneie com o celular na mesma rede Wi-Fi para colar URLs de addons e chaves API sem digitar no controle.</string>
+    <string name="addons_adicionar_url">+ Adicionar addon Stremio (URL)</string>
+    <string name="addons_secao_instalados">Addons Stremio instalados</string>
+    <string name="addons_nenhum_titulo">Nenhum addon instalado</string>
+    <string name="addons_nenhum_dica">Adicione pela URL ou escaneie o QR Code</string>
+    <string name="addons_secao_debrid">Provedores Debrid (Torrents)</string>
+    <string name="addons_debrid_sync">Sincronizar chaves Debrid via Connect</string>
     <string name="ajustes_minhas_listas">Minhas listas</string>
     <string name="ml_texto">Cole o link de uma lista .m3u ou escolha um arquivo. Ela fica só neste aparelho.</string>
     <string name="ml_titulo_link">Adicionar lista</string>

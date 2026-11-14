@@ -281,6 +281,10 @@ abstract class TelaComMenu : AppCompatActivity() {
             Icones.inicio(this, R.drawable.ic_settings)
             setOnClickListener { pedirEnderecos() }
         }
+        vazio.findViewById<TextView>(R.id.vazioBotaoAddons)?.apply {
+            Icones.inicio(this, R.drawable.ic_list)
+            setOnClickListener { AddonsTela.abrir(this@TelaComMenu) }
+        }
         raiz.addView(moldura, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
         super.setContentView(raiz)
         // O sistema dá o primeiro foco ao primeiro focável da tela — que seria

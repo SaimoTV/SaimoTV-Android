@@ -13,6 +13,7 @@ data class Source(
     /// O que diferencia a fonte das outras do canal ("Temporada 3"), quando o
     /// catálogo sabe; senão o app mostra o número dela.
     val nome: String? = null,
+    val headers: Map<String, String> = emptyMap(),
 ) {
     val isDash: Boolean get() = url.contains(".mpd", ignoreCase = true)
     val isHls: Boolean get() =

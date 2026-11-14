@@ -213,11 +213,19 @@ object Playback {
         // Há servidor que responde 200 com "security error" no lugar da
         // playlist quando falta o cabeçalho, e a fonte cai.
         cabecalhos["Accept"] = "*/*"
+        var userAgentEfetivo = source.userAgent
+        for ((chave, valor) in source.headers) {
+            if (chave.equals("User-Agent", ignoreCase = true)) {
+                if (userAgentEfetivo.isNullOrBlank()) userAgentEfetivo = valor
+            } else if (chave.isNotBlank() && valor.isNotBlank()) {
+                cabecalhos[chave] = valor
+            }
+        }
         source.referer?.let { cabecalhos["Referer"] = it }
         val upstream: DataSource.Factory = OkHttpDataSource.Factory(client)
-            .setUserAgent(source.userAgent ?: DEFAULT_USER_AGENT)
+            .setUserAgent(userAgentEfetivo ?: DEFAULT_USER_AGENT)
             .apply {
-                // Some CDNs only serve the manifest when a matching Referer is sent.
+                // Some CDNs only serve the manifest when a matching Referer/headers are sent.
                 if (cabecalhos.isNotEmpty()) setDefaultRequestProperties(cabecalhos)
             }
         val http: DataSource.Factory = ResolvingDataSource.Factory(upstream) { dataSpec ->

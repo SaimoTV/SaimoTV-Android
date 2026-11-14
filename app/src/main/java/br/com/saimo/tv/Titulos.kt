@@ -14,12 +14,50 @@ import androidx.media3.common.util.UnstableApi
 @UnstableApi
 object Titulos {
 
-    /** Uma fonte tocável, com a versão (dublado/legendado) a que pertence. */
-    data class Opcao(val versao: String, val url: String)
+    /** Uma fonte tocável, com a versão (dublado/legendado) e metadados opcionais de addon. */
+    data class Opcao(
+        val versao: String,
+        val url: String = "",
+        val origem: String = "",
+        val titulo: String = "",
+        val headers: Map<String, String> = emptyMap(),
+        val bingeGroup: String? = null,
+        val infoHash: String? = null,
+        val fileIdx: Int? = null,
+        val trackerSources: List<String> = emptyList(),
+        val externalUrl: String? = null,
+        val ytId: String? = null,
+        val notWebReady: Boolean = false,
+        val filename: String? = null,
+        val videoSize: Long? = null,
+        val videoHash: String? = null,
+        val legendasInline: List<Legendas.Opcao> = emptyList(),
+        val badges: List<String> = emptyList(),
+        val addonId: String? = null,
+    ) {
+        val ehAddon: Boolean get() = origem.isNotEmpty()
+        val ehTorrent: Boolean get() = !infoHash.isNullOrBlank() && url.isBlank()
+        val ehExternoOuYt: Boolean get() = url.isBlank() && infoHash.isNullOrBlank() &&
+            (!externalUrl.isNullOrBlank() || !ytId.isNullOrBlank())
+        val chaveIdentidade: String
+            get() = url.ifBlank {
+                listOfNotNull(
+                    infoHash?.let { "torrent:$it:${fileIdx ?: -1}" },
+                    externalUrl?.let { "ext:$it" },
+                    ytId?.let { "yt:$it" },
+                ).firstOrNull().orEmpty()
+            }
+    }
 
     /** Um episódio com todas as versões e fontes juntas. */
-    data class Ep(val temporada: Int, val numero: Int, val fontes: Map<String, List<String>>) {
-        val versoes: Set<String> get() = fontes.keys
+    data class Ep(
+        val temporada: Int,
+        val numero: Int,
+        val fontes: Map<String, List<String>>,
+        val opcoesExtras: List<Opcao> = emptyList(),
+    ) {
+        val versoes: Set<String> get() = (fontes.keys + opcoesExtras.map { it.versao }).toSet()
+        val temFontes: Boolean get() = fontes.isNotEmpty() || opcoesExtras.isNotEmpty()
     }
 
     data class Resolvido(
@@ -31,6 +69,8 @@ object Titulos {
         val tmdbId: Int,
         /// Título do Extras: não deixa rastro (progresso, "continuar", Google TV).
         val reservado: Boolean = false,
+        val imdbId: String? = null,
+        val opcoesAddon: List<Opcao> = emptyList(),
     ) {
         val serie: Boolean get() = filme == null
         val temporadas: List<Int> get() = episodios.map { it.temporada }.distinct().sorted()
@@ -68,11 +108,18 @@ object Titulos {
         val achado = Vod.Achado(alvo.titulo, alvo.serie, alvo.letra, alvo.ano)
         var tmdb = alvo.tmdbId.takeIf { it > 0 } ?: Generos.id(alvo.nomeCompleto, alvo.serie)
             ?: Generos.id(alvo.titulo, alvo.serie) ?: 0
+        if (tmdb <= 0 && alvo.imdbId.isNotBlank()) {
+            tmdb = IdResolver.referenciaPorImdb(alvo.imdbId, alvo.serie)?.tmdbId ?: 0
+        }
         if (tmdb <= 0) {
             tmdb = Detalhes.buscarId(alvo.titulo, alvo.serie, alvo.ano) ?: 0
         }
+        val imdbId = alvo.imdbId.ifBlank {
+            if (tmdb > 0) IdResolver.imdbPorTmdb(tmdb, alvo.serie).orEmpty() else ""
+        }.ifBlank { null }
+
         return if (alvo.serie) {
-            val serie = Vod.serie(context, achado)
+            val serie = if (alvo.letra.isNotBlank()) Vod.serie(context, achado) else null
             val epsLocais = if (serie != null) Vod.episodios(context, alvo.letra, serie) else emptyList()
             val agrupados = agrupar(epsLocais)
             val nome = serie?.nomeCompleto ?: alvo.nomeCompleto
@@ -90,33 +137,51 @@ object Titulos {
                     }
                     val todosEps = mapa.values.sortedWith(compareBy({ it.temporada }, { it.numero }))
                     val primeiro = todosEps.firstOrNull()
-                    val listaComPrimeiro = if (primeiro != null && primeiro.fontes.isEmpty()) {
+                    val listaComPrimeiro = if (primeiro != null && !primeiro.temFontes) {
                         val extras = Resolvedor404.fontes(tmdb, serie = true, temporada = primeiro.temporada, numero = primeiro.numero)
-                        if (extras.isNotEmpty()) {
-                            todosEps.map { if (it.temporada == primeiro.temporada && it.numero == primeiro.numero) Ep(it.temporada, it.numero, extras) else it }
+                        val addonOps = if (AddonsStore.temStreamAtivo()) {
+                            AddonsService.buscarStreams(tmdb, imdbId, serie = true, primeiro.temporada, primeiro.numero)
+                        } else emptyList()
+                        if (extras.isNotEmpty() || addonOps.isNotEmpty()) {
+                            todosEps.map {
+                                if (it.temporada == primeiro.temporada && it.numero == primeiro.numero) {
+                                    Ep(it.temporada, it.numero, extras, addonOps)
+                                } else it
+                            }
                         } else todosEps
                     } else todosEps
 
-                    return Resolvido(alvo, nome, null, listaComPrimeiro, tmdb)
+                    return Resolvido(alvo, nome, null, listaComPrimeiro, tmdb, imdbId = imdbId)
                 }
             }
 
             if (agrupados.isEmpty()) {
-                // 404: serie no catalogo sem fonte OU lancamento sem episodios locais -> busca nos addons
-                if (tmdb > 0) {
-                    val extras = Resolvedor404.fontes(tmdb, serie = true, temporada = 1, numero = 1)
-                    if (extras.isNotEmpty()) {
-                        val ep404 = Ep(1, 1, extras)
-                        return Resolvido(alvo, nome, null, listOf(ep404), tmdb)
+                val epsMeta = AddonsService.buscarEpisodiosMeta(tmdb, imdbId)
+                if (epsMeta.isNotEmpty()) {
+                    return Resolvido(alvo, nome, null, epsMeta, tmdb, imdbId = imdbId)
+                }
+                // 404 + Addons: série sem catálogo local
+                if (tmdb > 0 || !imdbId.isNullOrBlank()) {
+                    val extras = if (tmdb > 0) Resolvedor404.fontes(tmdb, serie = true, temporada = 1, numero = 1) else emptyMap()
+                    val addonOps = if (AddonsStore.temStreamAtivo()) {
+                        AddonsService.buscarStreams(tmdb, imdbId, serie = true, temporada = 1, episodio = 1)
+                    } else emptyList()
+                    if (extras.isNotEmpty() || addonOps.isNotEmpty()) {
+                        val ep404 = Ep(1, 1, extras, addonOps)
+                        return Resolvido(alvo, nome, null, listOf(ep404), tmdb, imdbId = imdbId)
                     }
                 }
                 return null
             }
-            Resolvido(alvo, nome, null, agrupados, tmdb)
+            Resolvido(alvo, nome, null, agrupados, tmdb, imdbId = imdbId)
         } else {
-            val filme = juntarGrafias(context, achado)
+            val filme = if (alvo.letra.isNotBlank()) juntarGrafias(context, achado) else null
+            val addonOps = if (AddonsStore.temStreamAtivo() && (tmdb > 0 || !imdbId.isNullOrBlank())) {
+                AddonsService.buscarStreams(tmdb, imdbId, serie = false)
+            } else emptyList()
+
             if (filme != null) {
-                // 404: acrescenta fontes dos addons como reserva no fim da fila
+                // 404: acrescenta fontes dos addons 404 como reserva no fim da fila
                 val extras = if (tmdb > 0) Resolvedor404.fontes(tmdb, serie = false) else emptyMap()
                 val comExtras = if (extras.isNotEmpty()) {
                     val todas = filme.fontes.keys + extras.keys
@@ -124,16 +189,16 @@ object Titulos {
                         (filme.fontes[v].orEmpty() + extras[v].orEmpty()).distinct()
                     }
                 } else filme.fontes
-                return Resolvido(alvo, filme.titulo, Filme(filme.titulo, comExtras), emptyList(), tmdb)
+                return Resolvido(alvo, filme.titulo, Filme(filme.titulo, comExtras), emptyList(), tmdb, imdbId = imdbId, opcoesAddon = addonOps)
             }
-            // 404: filme novo / lancamento que NAO esta no catalogo local de filmes!
-            if (tmdb > 0) {
-                val extras = Resolvedor404.fontes(tmdb, serie = false)
-                if (extras.isNotEmpty()) {
-                    return Resolvido(alvo, alvo.titulo, Filme(alvo.titulo, extras), emptyList(), tmdb)
+            // 404 + Addons: filme fora do catálogo local
+            if (tmdb > 0 || !imdbId.isNullOrBlank()) {
+                val extras = if (tmdb > 0) Resolvedor404.fontes(tmdb, serie = false) else emptyMap()
+                if (extras.isNotEmpty() || addonOps.isNotEmpty()) {
+                    return Resolvido(alvo, alvo.titulo, Filme(alvo.titulo, extras), emptyList(), tmdb, imdbId = imdbId, opcoesAddon = addonOps)
                 }
             }
-            if (!Unlock.unlocked) return null
+            if (!Unlock.unlocked || alvo.letra.isBlank()) return null
             val reservado = Vod.filmes(context, alvo.letra, reservados = true)
                 .firstOrNull { it.titulo == alvo.titulo } ?: return null
             Resolvido(alvo, reservado.titulo, reservado, emptyList(), 0, reservado = true)
@@ -187,21 +252,53 @@ object Titulos {
         return out
     }
 
+    /** Combina fontes locais/404 com streams vindos de addons Stremio mantendo a versão preferida primeiro. */
+    fun mesclarOpcoes(
+        fontes: Map<String, List<String>>,
+        opcoesAddon: List<Opcao>,
+        versao: String,
+        soEssa: Boolean = false,
+    ): List<Opcao> {
+        val locais = ordem(fontes, versao, soEssa)
+        if (opcoesAddon.isEmpty()) return locais
+        val vistas = linkedSetOf<String>()
+        val daVersao = opcoesAddon.filter { it.versao == versao }
+        val outras = if (soEssa && (locais.isNotEmpty() || daVersao.isNotEmpty())) {
+            emptyList()
+        } else {
+            opcoesAddon.filter { it.versao != versao }
+        }
+        val mescladas = buildList {
+            for (op in locais.filter { it.versao == versao } + daVersao +
+                locais.filter { it.versao != versao } + outras) {
+                val chave = op.chaveIdentidade
+                if (chave.isEmpty() || vistas.add(chave)) add(op)
+            }
+        }
+        return mescladas
+    }
+
     /** Servidor (host sem "www.") de uma url de fonte, ou vazio. */
     fun servidor(url: String): String =
         runCatching { java.net.URI(url).host }.getOrNull()?.removePrefix("www.")?.lowercase().orEmpty()
 
     /**
-     * Fonte do episódio novo que mais se parece com a que tocava: a primeira do
-     * mesmo servidor, senão a de mesma posição, senão 0 (a ordem de hoje).
-     * Só olha a versão (dublado/legendado) que o episódio vai tocar, que é a
-     * primeira de [opcoes]; o resultado é um índice de [opcoes].
+     * Fonte do episódio novo que mais se parece com a que tocava:
+     * primeiro `bingeGroup` (Stremio), depois mesmo servidor HTTP, depois mesma posição.
      */
-    fun preferida(opcoes: List<Opcao>, servidor: String, posicao: Int): Int {
+    fun preferida(
+        opcoes: List<Opcao>,
+        servidor: String,
+        posicao: Int,
+        bingeGroup: String? = null,
+    ): Int {
         val versao = opcoes.firstOrNull()?.versao ?: return 0
         val doGrupo = opcoes.indices.filter { opcoes[it].versao == versao }
+        if (!bingeGroup.isNullOrBlank()) {
+            doGrupo.firstOrNull { opcoes[it].bingeGroup == bingeGroup }?.let { return it }
+        }
         if (servidor.isNotEmpty()) {
-            doGrupo.firstOrNull { servidor(opcoes[it].url) == servidor }?.let { return it }
+            doGrupo.firstOrNull { opcoes[it].url.isNotEmpty() && servidor(opcoes[it].url) == servidor }?.let { return it }
         }
         return doGrupo.getOrNull(posicao) ?: 0
     }

@@ -36,6 +36,7 @@ data class Alvo(
     val ano: String = "",
     val colecao: String = "",
     val tmdbId: Int = 0,
+    val imdbId: String = "",
 ) {
     /// O filme já traz o ano no nome ("O Fim da Rua (2026)"); a série o
     /// guarda à parte. Só se acrescenta quando o nome ainda não tem.
@@ -45,6 +46,7 @@ data class Alvo(
     fun em(intent: Intent): Intent = intent
         .putExtra(TITULO, titulo).putExtra(SERIE, serie).putExtra(LETRA, letra)
         .putExtra(ANO, ano).putExtra(COLECAO, colecao).putExtra(TMDB, tmdbId)
+        .putExtra(IMDB, imdbId)
 
     companion object {
         private const val TITULO = "alvo.titulo"
@@ -53,6 +55,7 @@ data class Alvo(
         private const val ANO = "alvo.ano"
         private const val COLECAO = "alvo.colecao"
         private const val TMDB = "alvo.tmdb"
+        private const val IMDB = "alvo.imdb"
 
         fun de(intent: Intent?): Alvo? {
             val titulo = intent?.getStringExtra(TITULO) ?: return null
@@ -63,6 +66,7 @@ data class Alvo(
                 ano = intent.getStringExtra(ANO).orEmpty(),
                 colecao = intent.getStringExtra(COLECAO).orEmpty(),
                 tmdbId = intent.getIntExtra(TMDB, 0),
+                imdbId = intent.getStringExtra(IMDB).orEmpty(),
             )
         }
     }
@@ -140,7 +144,7 @@ class FichaActivity : TelaComMenu() {
         favoritar.setOnFocusChangeListener(crescerNoFoco)
         // Anime e dorama moram fora do acervo comum e os favoritos guardam a
         // letra; sem letra não há como reabrir, então o botão não aparece.
-        if (alvo.colecao.isNotEmpty()) {
+        if (alvo.colecao.isNotEmpty() || alvo.letra.isBlank()) {
             favoritar.visibility = View.GONE
         } else {
             atualizarFavorito()
@@ -190,7 +194,9 @@ class FichaActivity : TelaComMenu() {
             if (isFinishing || isDestroyed) return@launch
             resolvido = r
             atualizarAssistir()
-            val versoes = r.filme?.fontes?.keys ?: r.episodios.flatMap { it.versoes }.toSet()
+            val versoes = ((r.filme?.fontes?.keys ?: emptySet()) +
+                r.opcoesAddon.map { it.versao } +
+                r.episodios.flatMap { it.versoes }).toSet()
             if (versoes.size > 1) {
                 findViewById<TextView>(R.id.fichaVersao).apply {
                     visibility = View.VISIBLE
@@ -323,7 +329,7 @@ class FichaActivity : TelaComMenu() {
                             ?.tmdbId?.toIntOrNull()
                     }.getOrNull()
                 }
-            val ficha = Detalhes.de(alvo.titulo, alvo.serie, id)
+            val ficha = Detalhes.de(alvo.titulo, alvo.serie, id, alvo.imdbId)
             carregando.visibility = View.GONE
             if (isFinishing || isDestroyed) return@launch
             if (ficha == null || ficha.vazia) {

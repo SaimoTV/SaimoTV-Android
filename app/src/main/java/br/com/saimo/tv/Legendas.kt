@@ -38,8 +38,13 @@ object Legendas {
     /** [idioma] é o código do OpenSubtitles: "pob", "por", "eng", "spa". */
     data class Opcao(val id: String, val idioma: String, val rotulo: String, val url: String) {
         /** O código que o ExoPlayer entende. */
-        val bcp47: String get() = when (idioma) {
-            "pob" -> "pt-BR"; "por" -> "pt-PT"; "eng" -> "en"; "spa" -> "es"; else -> idioma
+        val bcp47: String get() = when (idioma.lowercase()) {
+            "pob", "pt-br", "ptbr", "pb" -> "pt-BR"
+            "por", "pt-pt", "pt" -> "pt-PT"
+            "eng", "en" -> "en"
+            "spa", "es" -> "es"
+            "fre", "fra", "fr" -> "fr"
+            else -> idioma
         }
     }
 
@@ -109,11 +114,44 @@ object Legendas {
         synchronized(arquivos) { arquivos.clear() }
     }
 
-    /** O SRT da legenda, em UTF-8. Nulo quando o servidor devolveu outra coisa. */
+    /** As legendas do título (OpenSubtitles nativo + addons `subtitles` + inline), sem duplicatas. */
+    suspend fun deComAddons(
+        tmdbId: Int,
+        imdbId: String?,
+        serie: Boolean,
+        temporada: Int = 0,
+        episodio: Int = 0,
+        inline: List<Opcao> = emptyList(),
+        videoHash: String? = null,
+        videoSize: Long? = null,
+        filename: String? = null,
+    ): List<Opcao> = withContext(Dispatchers.IO) {
+        val nativas = de(tmdbId, serie, temporada, episodio)
+        val deAddons = AddonsService.buscarLegendas(
+            tmdbId = tmdbId,
+            imdbId = imdbId,
+            serie = serie,
+            temporada = temporada,
+            episodio = episodio,
+            videoHash = videoHash,
+            videoSize = videoSize,
+            filename = filename,
+        )
+        val vistas = linkedSetOf<String>()
+        buildList {
+            for (op in inline + nativas + deAddons) {
+                if (op.url.isNotBlank() && vistas.add(op.url)) add(op)
+            }
+        }
+    }
+
+    /** O SRT/VTT/ASS da legenda, em UTF-8. Nulo quando o servidor devolveu outra coisa. */
     suspend fun baixar(opcao: Opcao): String? = withContext(Dispatchers.IO) {
         synchronized(arquivos) { arquivos[opcao.url] }?.let { return@withContext it }
         // Página de erro no lugar do arquivo: melhor sem legenda que com HTML na tela.
-        val corpo = texto(opcao.url)?.takeIf { it.contains("-->") } ?: return@withContext null
+        val corpo = texto(opcao.url)?.takeIf {
+            it.contains("-->") || it.contains("[Events]")
+        } ?: return@withContext null
         synchronized(arquivos) { arquivos[opcao.url] = corpo }
         corpo
     }

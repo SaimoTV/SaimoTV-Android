@@ -369,9 +369,28 @@ class BuscaActivity : TelaComMenu(), Connect.Listener {
             mostrar(filas, termo)
             if (achados.isEmpty() && colecoes.isEmpty() && termo.length >= 3) Telemetria.buscouSemAchar("vod", termo)
 
-            // Lançamentos e TMDB: busca novidades e lançamentos fora do catálogo local
+            // Lançamentos, catálogos de addons e TMDB: busca fora do catálogo local
             if (termo.length >= 3) {
                 delay(300)
+                val addonsTitulos = AddonsService.buscarCatalogos(termo)
+                if (addonsTitulos.isNotEmpty() && digitado.toString().trim() == termo) {
+                    filas += Inicio.Fila("Nos Addons", addonsTitulos.map { item ->
+                        val alvo = item.paraAlvo()
+                        Inicio.Cartao(
+                            titulo = item.titulo,
+                            capa = item.capa.orEmpty(),
+                            inicial = item.titulo.take(1).uppercase(),
+                            subtitulo = item.ano.takeIf { it.isNotBlank() },
+                            alvo = alvo,
+                            aoEscolher = {
+                                lembrar()
+                                FichaActivity.abrir(this@BuscaActivity, alvo)
+                            }
+                        )
+                    })
+                    mostrar(filas, termo)
+                }
+
                 val tmdbTitulos = Detalhes.buscarTitulos(termo)
                 if (tmdbTitulos.isNotEmpty() && digitado.toString().trim() == termo) {
                     val conhecidosIds = achados.mapNotNull { Generos.id(it.nomeCompleto, it.serie) ?: Generos.id(it.titulo, it.serie) }.toSet()
@@ -426,7 +445,8 @@ class BuscaActivity : TelaComMenu(), Connect.Listener {
     private fun mostrar(filas: List<Inicio.Fila>, termo: String) {
         adaptador.trocar(filas)
         estado.visibility = if (filas.isEmpty()) View.VISIBLE else View.GONE
-        estado.text = if (Enderecos.temAlgum) getString(R.string.busca_nada, termo) else getString(R.string.vazio_inicio)
+        val pronto = Enderecos.temAlgum || AddonsStore.temAtivo()
+        estado.text = if (pronto) getString(R.string.busca_nada, termo) else getString(R.string.vazio_inicio)
     }
 
     /** Sem nada digitado: as buscas recentes, a um OK. */
@@ -435,7 +455,8 @@ class BuscaActivity : TelaComMenu(), Connect.Listener {
         if (recentes.isEmpty()) {
             adaptador.trocar(emptyList())
             estado.visibility = View.VISIBLE
-            estado.text = getString(if (Enderecos.temAlgum) R.string.busca_comece else R.string.vazio_inicio)
+            val pronto = Enderecos.temAlgum || AddonsStore.temAtivo()
+            estado.text = getString(if (pronto) R.string.busca_comece else R.string.vazio_inicio)
             return
         }
         estado.visibility = View.GONE

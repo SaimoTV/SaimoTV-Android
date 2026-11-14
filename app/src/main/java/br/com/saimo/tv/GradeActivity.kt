@@ -63,7 +63,7 @@ class GradeActivity : TelaComMenu() {
         private val ANO = Regex("\\((\\d{4})\\)\\s*$")
     }
 
-    private data class Item(val alvo: Alvo, val chave: String, val ano: Int) {
+    private data class Item(val alvo: Alvo, val chave: String, val ano: Int, val capa: String? = null) {
         /// Título em outro alfabeto (grego, cirílico, hindi) normaliza para
         /// vazio: vai para o fim, sob "…", e não para o começo da lista.
         val letra: String = chave.firstOrNull()?.let {
@@ -150,11 +150,24 @@ class GradeActivity : TelaComMenu() {
         InfoDosTitulos.carregar(this)
         todos = withContext(Dispatchers.Default) {
             when (tipo) {
-                FILMES, SERIES -> Vod.entradas(this@GradeActivity).filter { it.serie == (tipo == SERIES) && Generos.capa(it.achado.titulo, it.achado.serie) != null }
-                    .map { e ->
-                        val a = e.achado
-                        Item(Alvo(a.titulo, a.serie, a.letra, a.ano), e.chave, anoDe(a.titulo, a.ano))
-                    }
+                FILMES, SERIES -> {
+                    val entradas = Vod.entradas(this@GradeActivity)
+                    if (entradas.isNotEmpty()) {
+                        entradas.filter { it.serie == (tipo == SERIES) && Generos.capa(it.achado.titulo, it.achado.serie) != null }
+                            .map { e ->
+                                val a = e.achado
+                                Item(Alvo(a.titulo, a.serie, a.letra, a.ano), e.chave, anoDe(a.titulo, a.ano))
+                            }
+                    } else if (AddonsStore.temAtivo()) {
+                        (AddonsService.descobrirTmdbLista(serie = (tipo == SERIES), pagina = 1) +
+                            AddonsService.descobrirTmdbLista(serie = (tipo == SERIES), pagina = 2))
+                            .distinctBy { it.tmdbId }
+                            .map { d ->
+                                val alvo = d.paraAlvo()
+                                Item(alvo, Vod.normalizar(d.titulo), d.ano.toIntOrNull() ?: 0, d.capa)
+                            }
+                    } else emptyList()
+                }
                 ANIMES, DORAMAS -> Vod.colecao(this@GradeActivity, tipo).filter { Generos.capa(it.titulo, true) != null }.map { c ->
                     Item(Alvo(c.titulo, true, "", c.ano, tipo, c.tmdbId.toIntOrNull() ?: 0),
                         Vod.normalizar(c.titulo), anoDe(c.titulo, c.ano))
@@ -215,7 +228,7 @@ class GradeActivity : TelaComMenu() {
         // Acervo sem dados (sem endereço, ou endereço que não carregou).
         val semAcervo = todos.isEmpty() && tipo != FAVORITOS && tipo != EXTRAS
         if (semAcervo) {
-            mostrarVazio(getString(if (Enderecos.filmes == null) R.string.vazio_filmes else R.string.vazio_falhou))
+            mostrarVazio(getString(if (Enderecos.filmes == null && !AddonsStore.temAtivo()) R.string.vazio_filmes else R.string.vazio_falhou))
         } else esconderVazio()
         estado.visibility = if (lista.isEmpty() && !semAcervo) View.VISIBLE else View.GONE
         estado.text = if (tipo == FAVORITOS) getString(if (Vr.ativo) R.string.vr_grade_vazio_favoritos else R.string.grade_vazio_favoritos) else getString(R.string.vod_vazio)
@@ -367,7 +380,7 @@ class GradeActivity : TelaComMenu() {
             val fracao = if (alvo.serie) null else Progresso.fracao(this@GradeActivity, Progresso.chaveFilme(alvo.titulo))
             holder.progresso.visibility = if (fracao != null && fracao > 0f) View.VISIBLE else View.GONE
             fracao?.let { holder.progresso.progress = (it * 1000).toInt() }
-            val capa = Generos.capa(alvo.nomeCompleto, alvo.serie) ?: Generos.capa(alvo.titulo, alvo.serie)
+            val capa = item.capa ?: Generos.capa(alvo.nomeCompleto, alvo.serie) ?: Generos.capa(alvo.titulo, alvo.serie)
             if (tipo == EXTRAS) {
                 // Capa genérica: nada da imagem de origem aparece na grade.
                 holder.imagem.dispose()
