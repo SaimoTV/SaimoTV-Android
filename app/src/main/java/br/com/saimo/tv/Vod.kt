@@ -340,8 +340,9 @@ object Vod {
             if (linha.startsWith("@")) {
                 if (dentro) break
                 val identidade = linha.substring(1).split("\t", limit = 2)
+                val anoChunk = identidade.getOrNull(1).orEmpty()
                 dentro = identidade[0] == serie.titulo &&
-                    identidade.getOrNull(1).orEmpty() == serie.ano
+                    (anoChunk == serie.ano || anoChunk.isEmpty() || serie.ano.isEmpty())
                 continue
             }
             if (!dentro) continue
