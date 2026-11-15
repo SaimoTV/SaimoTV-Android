@@ -175,7 +175,7 @@ object StremioProtocol {
         val badges: List<String>
             get() = buildList {
                 when (tipo) {
-                    TipoStream.TORRENT_DEBRID -> add("[Torrent / Debrid]")
+                    TipoStream.TORRENT_DEBRID -> add("[Torrent]")
                     TipoStream.EXTERNO -> add("[Externo]")
                     TipoStream.YOUTUBE -> add("[YouTube]")
                     else -> Unit

@@ -170,6 +170,15 @@ class PlayerActivity : AppCompatActivity(), Connect.Listener {
     private var urlTocando: String? = null
     /** Alguma fonte deste título respondeu que o vídeo não existe ainda. */
     private var semVideo = false
+    /** Tocou algo pelo motor de torrent: ao fechar, apaga o que baixou. */
+    private var usouTorrent = false
+    /** Com o filme tocando, a posição vai para o celular a cada 5 s (como no Mac e no Windows). */
+    private val avisoPosicao = object : Runnable {
+        override fun run() {
+            Connect.notificarMudancaDeEstado()
+            if (player?.isPlaying == true) handler.postDelayed(this, 5000)
+        }
+    }
     private var marcas: Pulos.Marcas? = null
     /// Legendas do OpenSubtitles: as do título, a escolhida (com o arquivo já
     /// baixado) e o atraso dela. Trocar de fonte não as perde.
@@ -697,7 +706,31 @@ class PlayerActivity : AppCompatActivity(), Connect.Listener {
             return
         }
 
-        // Torrent (`infoHash`): exige provedor Debrid ativo no cliente
+        // Torrent (`infoHash`): com Debrid ativo, vai pelo Debrid (mais rápido);
+        // sem Debrid, toca pelo motor de torrent embutido, como o Stremio.
+        if (opcao.ehTorrent && !opcao.infoHash.isNullOrBlank() && !DebridStore.temAlgumAtivo() &&
+            MotorTorrent.disponivel(this)
+        ) {
+            mostrarCarregando("Conectando ao torrent…")
+            Telemetria.comecou("vod", nomeTelemetria(), "magnet:${opcao.infoHash}", fonte + 1, nova = tentadas.isEmpty())
+            selecionarLegendaExt = legendaExt != null
+            val tentativa = tentativaDesde
+            usouTorrent = true
+            lifecycleScope.launch(semDerrubar) {
+                val destino = runCatching {
+                    MotorTorrent.enderecoPara(this@PlayerActivity, opcao.infoHash, opcao.fileIdx, opcao.trackerSources, alvo.titulo)
+                }.getOrNull()
+                if (tentativa != tentativaDesde || player !== atual) return@launch
+                if (destino == null) {
+                    proximaFonte(inicio)
+                    return@launch
+                }
+                // Achar pares e baixar o começo leva mais que um link comum.
+                handler.postDelayed(prazo, PRAZO_MS * 4)
+                iniciarFonte(atual, destino, inicio, pausado)
+            }
+            return
+        }
         if (opcao.ehTorrent && !opcao.infoHash.isNullOrBlank()) {
             if (!DebridStore.temAlgumAtivo()) {
                 val temOutraJogavel = opcoes.indices.any {
@@ -917,6 +950,10 @@ class PlayerActivity : AppCompatActivity(), Connect.Listener {
             video.keepScreenOn = isPlaying
             atualizarBotaoPausa()
             if (!isPlaying) guardar()
+            // O celular mostra play/pausa e a barra do filme: avisa na hora.
+            Connect.notificarMudancaDeEstado()
+            handler.removeCallbacks(avisoPosicao)
+            if (isPlaying) handler.postDelayed(avisoPosicao, 5000)
         }
 
         override fun onPlayerError(error: PlaybackException) {
@@ -1655,6 +1692,7 @@ class PlayerActivity : AppCompatActivity(), Connect.Listener {
         player?.let { AudioInteligente.liberar(it) }
         player?.release()
         player = null
+        if (usouTorrent) MotorTorrent.limpar()
         super.onDestroy()
     }
 
