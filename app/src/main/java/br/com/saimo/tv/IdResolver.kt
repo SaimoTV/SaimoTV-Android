@@ -14,6 +14,7 @@ import org.json.JSONObject
 object IdResolver {
 
     private const val PREF_NOME = "saimo_id_bridge_v1"
+    private const val LIMITE_CACHE = 3000
 
     data class ReferenciaTitulo(
         val tmdbId: Int,
@@ -31,8 +32,15 @@ object IdResolver {
     fun iniciar(context: Context) {
         val sp = context.applicationContext.getSharedPreferences(PREF_NOME, Context.MODE_PRIVATE)
         prefs = sp
+        // O cache só cresce (cada título aberto grava uma entrada) e é lido inteiro
+        // na abertura do app, na thread principal: passou do limite, recomeça vazio.
+        val todas = sp.all
+        if (todas.size > LIMITE_CACHE) {
+            sp.edit().clear().apply()
+            return
+        }
         synchronized(this) {
-            for ((k, v) in sp.all) {
+            for ((k, v) in todas) {
                 val s = v as? String ?: continue
                 if (k.startsWith("t2i:")) cacheTmdbParaImdb[k.removePrefix("t2i:")] = s
                 else if (k.startsWith("i2t:")) {
