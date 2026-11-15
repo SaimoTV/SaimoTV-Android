@@ -184,8 +184,11 @@ class EventosActivity : TelaComMenu() {
         }
     }
 
-    private val hora = SimpleDateFormat("HH:mm", Locale.getDefault())
-    private val semana = SimpleDateFormat("EEE", Locale.forLanguageTag("pt-BR"))
+    // A agenda é em horário de Brasília. TV Box costuma vir com o fuso em UTC e,
+    // com o fuso do aparelho, os jogos apareciam 3 h adiantados.
+    private val brasilia: TimeZone = TimeZone.getTimeZone("America/Sao_Paulo")
+    private val hora = SimpleDateFormat("HH:mm", Locale.getDefault()).apply { timeZone = brasilia }
+    private val semana = SimpleDateFormat("EEE", Locale.forLanguageTag("pt-BR")).apply { timeZone = brasilia }
 
     /** "21:30", "amanhã 16:00" ou "sáb 16:00". */
     private fun quando(inicio: Long, agora: Long): String {
@@ -199,7 +202,7 @@ class EventosActivity : TelaComMenu() {
     }
 
     private fun diaDe(ms: Long): Int {
-        val c = Calendar.getInstance().apply { timeInMillis = ms }
+        val c = Calendar.getInstance(brasilia).apply { timeInMillis = ms }
         return c.get(Calendar.YEAR) * 400 + c.get(Calendar.DAY_OF_YEAR)
     }
 
