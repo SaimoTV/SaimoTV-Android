@@ -82,7 +82,7 @@ object MenuGlobal {
                 typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
                 setTextColor(ContextCompat.getColorStateList(tela, R.color.texto_botao_ficha))
                 // Apoie fica sempre em destaque, chamando atenção no menu.
-                setBackgroundResource(if (aba == Aba.APOIE) R.drawable.aba_apoie else R.drawable.aba_menu)
+                if (aba == Aba.APOIE) apoieChamativo(this, d) else setBackgroundResource(R.drawable.aba_menu)
                 isFocusable = true
                 isSelected = aba == atual
                 // Extras só existe depois do código, e some de novo sem deixar vão.
@@ -170,6 +170,45 @@ object MenuGlobal {
         if (destino == null) tela.startActivity(inicio)
         else tela.startActivities(arrayOf(inicio, destino))
         tela.overridePendingTransition(0, 0)
+    }
+
+    /**
+     * A aba Apoie chama atenção: a cor corre pelo arco-íris (4 s por volta) e
+     * a aba pulsa de leve. Com foco fica branca, como as outras. A animação só
+     * roda enquanto a aba está na tela.
+     */
+    private fun apoieChamativo(aba: TextView, d: Float) {
+        val pilula = android.graphics.drawable.GradientDrawable().apply { cornerRadius = 100 * d }
+        val foco = android.graphics.drawable.GradientDrawable().apply { cornerRadius = 100 * d; setColor(0xFFFFFFFF.toInt()) }
+        aba.background = android.graphics.drawable.StateListDrawable().apply {
+            addState(intArrayOf(android.R.attr.state_focused), foco)
+            addState(intArrayOf(), pilula)
+        }
+        val hsv = floatArrayOf(0f, 0.72f, 0.95f)
+        val animador = android.animation.ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = 4000
+            repeatCount = android.animation.ValueAnimator.INFINITE
+            interpolator = android.view.animation.LinearInterpolator()
+            addUpdateListener {
+                val t = it.animatedValue as Float
+                hsv[0] = (330f + 360f * t) % 360f
+                val a = android.graphics.Color.HSVToColor(hsv)
+                hsv[0] = (hsv[0] + 50f) % 360f
+                val b = android.graphics.Color.HSVToColor(hsv)
+                pilula.colors = intArrayOf(a, b)
+                pilula.orientation = android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT
+                if (!aba.isFocused) {
+                    val pulso = 1f + 0.05f * kotlin.math.sin(t * 2.0 * Math.PI * 2.5).toFloat()
+                    aba.scaleX = pulso
+                    aba.scaleY = pulso
+                }
+            }
+        }
+        aba.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
+            override fun onViewAttachedToWindow(v: View) { animador.start() }
+            override fun onViewDetachedFromWindow(v: View) { animador.cancel(); v.scaleX = 1f; v.scaleY = 1f }
+        })
+        if (aba.isAttachedToWindow) animador.start()
     }
 }
 
