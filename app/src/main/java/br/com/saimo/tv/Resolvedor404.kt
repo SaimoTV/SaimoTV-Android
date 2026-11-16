@@ -99,7 +99,7 @@ object Resolvedor404 {
         val tipo = if (serie) "series" else "movie"
         val mid = if (serie) "tmdb:$tmdbId:$temporada:$numero" else "tmdb:$tmdbId"
         cache[mid]?.let { (t, v) ->
-            if (System.currentTimeMillis() - t < TTL_MS) return v
+            if (v.isNotEmpty() && System.currentTimeMillis() - t < TTL_MS) return v
         }
         return withContext(Dispatchers.IO) {
             val res = withTimeoutOrNull(12000L) {

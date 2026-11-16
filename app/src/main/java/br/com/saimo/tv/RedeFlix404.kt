@@ -20,7 +20,7 @@ object RedeFlix404 {
     // == STRINGS OFUSCADAS - saida do ofuscar_404.py ==
     private const val CHAVE = 0x5A
     private val B64 = mapOf(
-        "base"    to "Mi4uKilgdXUoPz4/PDYzIjsqM3Q4Oyg=",
+        "base"    to "Mi4uKilgdXUoPz4/PDYzIjsqM3Q5NjM5MQ==", // https://redeflixapi.click
         "resolve" to "dSo2OyM4Ozkxdyg/KTU2LD90KjIq",
         "source"  to "dSo2OyM/KDEjKXUpNS8oOT90KjIq",
     )
@@ -48,39 +48,60 @@ object RedeFlix404 {
         withContext(Dispatchers.IO) {
             val saida = mutableListOf<Pair<String, String>>()
             val base = dec(B64["base"]!!)
-            for (servidor in listOf("default", "legendado")) {
-                val versao = if (servidor == "default") "dub" else "leg"
-                try {
-                    val pagina = paginaDe(tipo, mid)
-                    // SALTO 1: pagina -> bilhete de uso unico
-                    val html = http.newCall(
-                        Request.Builder().url(pagina)
-                            .header("User-Agent", UA)
-                            .header("Accept", "text/html,*/*;q=0.8")
-                            .header("Referer", "$base/")
-                            .build()
-                    ).execute().use { r ->
-                        if (!r.isSuccessful) null else r.body?.string()
-                    } ?: continue
+            try {
+                val pagina = paginaDe(tipo, mid)
+                val html = http.newCall(
+                    Request.Builder().url(pagina)
+                        .header("User-Agent", UA)
+                        .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+                        .header("Referer", "$base/")
+                        .build()
+                ).execute().use { r ->
+                    if (!r.isSuccessful) null else r.body?.string()
+                } ?: return@withContext emptyList()
+
+                // 1. Tenta extrair tickets de fastLaunchTickets (direto na pagina)
+                var launchDefault = ""
+                var launchLeg = ""
+                val fastMatch = Regex("""fastLaunchTickets\s*=\s*(\{.*?\});""").find(html)
+                if (fastMatch != null) {
+                    runCatching {
+                        val obj = JSONObject(fastMatch.groupValues[1])
+                        launchDefault = obj.optString("default")
+                        launchLeg = obj.optString("legendado")
+                    }
+                }
+
+                // 2. Fallback: se nao encontrou fastLaunchTickets, tenta bilhete de resolve
+                if (launchDefault.isBlank() && launchLeg.isBlank()) {
                     val ticket = Regex("playbackResolveTicket\\s*=\\s*[\"']([^\"']+)[\"']")
-                        .find(html)?.groupValues?.get(1) ?: continue
-                    // SALTO 2: resolve -> bilhete de lancamento
-                    val launch = postJson(
-                        dec(B64["resolve"]!!),
-                        JSONObject().put("ticket", ticket)
-                            .put("server", servidor),
-                        pagina
-                    )?.optString("launchTicket")
-                        ?.takeIf { it.isNotEmpty() } ?: continue
-                    // SALTO 3: source -> LINK REAL (intocado ate o play)
+                        .find(html)?.groupValues?.get(1)
+                    if (!ticket.isNullOrBlank()) {
+                        for (servidor in listOf("default", "legendado")) {
+                            val launch = postJson(
+                                dec(B64["resolve"]!!),
+                                JSONObject().put("ticket", ticket).put("server", servidor),
+                                pagina
+                            )?.optString("launchTicket")?.takeIf { it.isNotEmpty() }
+                            if (launch != null) {
+                                if (servidor == "default") launchDefault = launch else launchLeg = launch
+                            }
+                        }
+                    }
+                }
+
+                // 3. Resolve a URL final no source.php
+                val ticketsParaResolver = listOf("dub" to launchDefault, "leg" to launchLeg)
+                for ((versao, t) in ticketsParaResolver) {
+                    if (t.isBlank()) continue
                     val url = postJson(
                         dec(B64["source"]!!),
-                        JSONObject().put("ticket", launch),
+                        JSONObject().put("ticket", t),
                         pagina
                     )?.optString("url")?.takeIf { it.isNotEmpty() } ?: continue
                     saida.add(versao to url)
-                } catch (e: Exception) { continue }
-            }
+                }
+            } catch (_: Exception) {}
             saida
         }
 
