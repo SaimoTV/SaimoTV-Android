@@ -47,6 +47,7 @@ import androidx.media3.session.MediaSession
 import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.PlayerView
 import androidx.media3.ui.SubtitleView
+import coil3.asDrawable
 import coil3.load
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -172,6 +173,8 @@ class PlayerActivity : AppCompatActivity(), Connect.Listener {
     private var semVideo = false
     /** Tocou algo pelo motor de torrent: ao fechar, apaga o que baixou. */
     private var usouTorrent = false
+    /** Logo (ou capa) do título que está tocando: vai para o celular no Saimo Connect. */
+    private var imagemDoTitulo: String? = null
     /** Com o filme tocando, a posição vai para o celular a cada 5 s (como no Mac e no Windows). */
     private val avisoPosicao = object : Runnable {
         override fun run() {
@@ -206,6 +209,9 @@ class PlayerActivity : AppCompatActivity(), Connect.Listener {
         if (Vr.ativo) Vr.videoEmTextura(this, R.id.playerVideo)
         video = findViewById(R.id.playerVideo)
         carregando = findViewById(R.id.playerCarregando)
+        // Enquanto a logo do título não chega, o do Saimo.
+        findViewById<LogoCarregando>(R.id.playerLogoCarregando)
+            .definir(androidx.core.content.ContextCompat.getDrawable(this, R.mipmap.ic_launcher_frente))
         status = findViewById(R.id.playerStatus)
         topo = findViewById(R.id.playerTopo)
         base = findViewById(R.id.playerBase)
@@ -305,6 +311,14 @@ class PlayerActivity : AppCompatActivity(), Connect.Listener {
     private fun mostrarLogo(r: Titulos.Resolvido) {
         lifecycleScope.launch(semDerrubar) {
             val url = Detalhes.de(r.alvo.titulo, r.serie, r.tmdbId.takeIf { it > 0 })?.logo ?: return@launch
+            imagemDoTitulo = url
+            Connect.notificarMudancaDeEstado()
+            // A mesma logo vira o carregamento (enchendo de cor até o vídeo começar).
+            val alvoLogo = findViewById<LogoCarregando>(R.id.playerLogoCarregando)
+            coil3.ImageLoader(this@PlayerActivity).enqueue(
+                coil3.request.ImageRequest.Builder(this@PlayerActivity).data(url)
+                    .target { alvoLogo.definir(it.asDrawable(resources)) }.build()
+            )
             if (isFinishing || isDestroyed) return@launch
             val logo = findViewById<ImageView>(R.id.playerLogo)
             logo.load(url) {
@@ -1720,6 +1734,7 @@ class PlayerActivity : AppCompatActivity(), Connect.Listener {
         vod.put("pos", p?.currentPosition ?: 0L)
         vod.put("dur", (p?.duration?.takeIf { it > 0 && it != C.TIME_UNSET } ?: 0L))
         vod.put("key", alvo.titulo)
+        (imagemDoTitulo ?: Generos.capa(alvo.titulo, alvo.serie))?.let { vod.put("poster", it) }
         val opcaoAtual = opcoes.getOrNull(fonte)
         if (opcaoAtual != null) {
             vod.put("url", opcaoAtual.url)
@@ -1732,7 +1747,7 @@ class PlayerActivity : AppCompatActivity(), Connect.Listener {
             s0Obj.put("idx", 0)
             s0Obj.put("channel", titulo.text?.toString() ?: alvo.nomeCompleto)
             s0Obj.put("num", 0)
-            s0Obj.put("logo", "")
+            s0Obj.put("logo", imagemDoTitulo ?: Generos.capa(alvo.titulo, alvo.serie) ?: "")
             s0Obj.put("program", subtitulo.text?.toString() ?: "")
             s0Obj.put("sourceIndex", fonte)
             s0Obj.put("source", JSONObject().apply {
