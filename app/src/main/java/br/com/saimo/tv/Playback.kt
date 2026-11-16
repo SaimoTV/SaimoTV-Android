@@ -77,8 +77,80 @@ object Playback {
             return doServidor
         }
 
-        return null
+        // Fallback: se o relay do Pages falhar ou devolver somenteApp/404,
+        // resolve diretamente da conexão residencial na RedeFlix:
+        return resolverRedeFlixDireto(url)
     }
+
+    /**
+     * Resolve diretamente da RedeFlix pelo IP do próprio aparelho.
+     */
+    fun resolverRedeFlixDireto(url: String): String? = runCatching {
+        val uri = url.toHttpUrl()
+        val rawId = uri.queryParameter("id")?.removePrefix("tmdb:") ?: return null
+        val cleanId = rawId.split(":").firstOrNull() ?: rawId
+        if (cleanId.isBlank() || !cleanId.all { it.isDigit() }) return null
+
+        val tipo = uri.queryParameter("tipo") ?: uri.queryParameter("type") ?: "movie"
+        val isSerie = tipo.equals("series", ignoreCase = true) || tipo.equals("tv", ignoreCase = true)
+        val s = uri.queryParameter("s") ?: uri.queryParameter("temporada") ?: "1"
+        val e = uri.queryParameter("e") ?: uri.queryParameter("episodio") ?: "1"
+        val versao = uri.queryParameter("versao") ?: uri.queryParameter("v") ?: "dub"
+
+        val pageUrl = if (isSerie) {
+            "https://redeflixapi.click/serie/$cleanId/$s/$e"
+        } else {
+            "https://redeflixapi.click/filme/$cleanId"
+        }
+
+        val pageReq = okhttp3.Request.Builder()
+            .url(pageUrl)
+            .header("User-Agent", DEFAULT_USER_AGENT)
+            .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+            .build()
+
+        val html = client.newCall(pageReq).execute().use { r ->
+            if (r.isSuccessful) r.body?.string().orEmpty() else ""
+        }
+        if (html.isBlank()) return null
+
+        var launchTicket = ""
+        val fastMatch = Regex("""fastLaunchTickets\s*=\s*(\{.*?\});""").find(html)
+        if (fastMatch != null) {
+            val jsonStr = fastMatch.groupValues[1]
+            val obj = org.json.JSONObject(jsonStr)
+            launchTicket = if (versao.equals("leg", ignoreCase = true)) {
+                obj.optString("legendado").takeIf { it.isNotBlank() } ?: obj.optString("default")
+            } else {
+                obj.optString("default").takeIf { it.isNotBlank() } ?: obj.optString("legendado")
+            }
+        }
+
+        if (launchTicket.isBlank()) {
+            val ticketMatch = Regex("""playbackResolveTicket\s*=\s*"([^"]+)"""").find(html)
+            if (ticketMatch != null) {
+                launchTicket = ticketMatch.groupValues[1]
+            }
+        }
+
+        if (launchTicket.isBlank()) return null
+
+        val sourceReq = okhttp3.Request.Builder()
+            .url("https://redeflixapi.click/playerkys/source.php")
+            .header("Content-Type", "application/json")
+            .header("X-Requested-With", "RedeFlixPlayer")
+            .header("User-Agent", DEFAULT_USER_AGENT)
+            .header("Referer", "https://redeflixapi.click/playerkys/index.html")
+            .header("Origin", "https://redeflixapi.click")
+            .post("""{"ticket":"$launchTicket"}""".toRequestBody("application/json".toMediaType()))
+            .build()
+
+        client.newCall(sourceReq).execute().use { r ->
+            if (!r.isSuccessful) return null
+            val obj = org.json.JSONObject(r.body?.string().orEmpty())
+            obj.optString("url").takeIf { it.isNotBlank() }
+        }
+    }.getOrNull()
 
     /**
      * One OkHttp client for everything, resolving names over DNS-over-HTTPS.
