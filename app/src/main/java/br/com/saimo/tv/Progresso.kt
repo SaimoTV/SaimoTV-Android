@@ -204,11 +204,8 @@ object Progresso {
             val campos = chave.split("|")
             val serie = campos.firstOrNull() == "s"
             val nome = campos.getOrNull(1) ?: continue
-            // Episódio de série já aparece pelo cartão da série.
-            if (serie && nome in seriesVistas) continue
             val temporada = campos.getOrNull(2)?.toIntOrNull() ?: 0
             val episodio = campos.getOrNull(3)?.toIntOrNull() ?: 0
-            if (serie) seriesVistas += nome
             out += Andamento(
                 chave = chave, nome = nome,
                 rotulo = if (serie) "${Generos.semAno(nome)} · T$temporada E$episodio" else nome,
@@ -219,7 +216,20 @@ object Progresso {
                 temporada = temporada, episodio = episodio,
             )
         }
-        return out.sortedByDescending { it.quando }
+        // Série aparece uma vez só, no episódio assistido por último. A marca
+        // "u|" nem sempre é a mais nova (episódio que chegou pela sincronia com
+        // o celular não a atualiza), e sem ela entrava o primeiro episódio
+        // achado, que podia ser um antigo.
+        val maisRecente = HashMap<String, Andamento>()
+        val filmes = mutableListOf<Andamento>()
+        for (a in out) {
+            if (!a.serie) { filmes += a; continue }
+            val atual = maisRecente[a.nome]
+            if (atual == null || a.quando > atual.quando ||
+                (a.quando == atual.quando && (a.temporada to a.episodio).let { (t, e) -> t > atual.temporada || (t == atual.temporada && e > atual.episodio) })
+            ) maisRecente[a.nome] = a
+        }
+        return (filmes + maisRecente.values).sortedByDescending { it.quando }
     }
 
     /** Posição guardada, ou zero. */
