@@ -1734,6 +1734,12 @@ class PlayerActivity : AppCompatActivity(), Connect.Listener {
         vod.put("pos", p?.currentPosition ?: 0L)
         vod.put("dur", (p?.duration?.takeIf { it > 0 && it != C.TIME_UNSET } ?: 0L))
         vod.put("key", alvo.titulo)
+        // Série: o celular mostra a temporada/episódio no ar e abre a lista de episódios.
+        resolvido?.takeIf { it.serie }?.let { r ->
+            vod.put("serie", true)
+            ep?.let { vod.put("temporada", it.temporada); vod.put("episodio", it.numero) }
+            vod.put("temporadas", JSONArray(r.temporadas))
+        }
         (imagemDoTitulo ?: Generos.capa(alvo.titulo, alvo.serie))?.let { vod.put("poster", it) }
         val opcaoAtual = opcoes.getOrNull(fonte)
         if (opcaoAtual != null) {
@@ -1887,6 +1893,32 @@ class PlayerActivity : AppCompatActivity(), Connect.Listener {
             alternarPausa()
             Connect.notificarMudancaDeEstado()
         }
+    }
+
+    override fun episodiosDaTemporada(temporada: Int, responder: (JSONArray) -> Unit) {
+        val r = resolvido ?: return responder(JSONArray())
+        val eps = r.episodios.filter { it.temporada == temporada }.sortedBy { it.numero }
+        lifecycleScope.launch(semDerrubar) {
+            // Os nomes vêm do TMDB; sem eles, só o número.
+            val nomes = runCatching {
+                if (r.tmdbId > 0) Detalhes.temporada(r.tmdbId, temporada).associateBy { it.numero } else emptyMap()
+            }.getOrDefault(emptyMap())
+            val lista = JSONArray()
+            for (e in eps) {
+                val o = JSONObject().put("numero", e.numero)
+                nomes[e.numero]?.nome?.takeIf { it.isNotBlank() }?.let { o.put("titulo", it) }
+                Progresso.fracao(this@PlayerActivity, r.chave(e))?.let { o.put("visto", it.toDouble()) }
+                if (e == ep) o.put("noAr", true)
+                lista.put(o)
+            }
+            responder(lista)
+        }
+    }
+
+    override fun escolherEpisodio(temporada: Int, episodio: Int) {
+        val r = resolvido ?: return
+        val alvoEp = r.episodios.firstOrNull { it.temporada == temporada && it.numero == episodio } ?: return
+        if (alvoEp != ep) trocarEpisodio(alvoEp)
     }
 
     override fun avancarOuVoltarVod(ms: Long, delta: Long?) {

@@ -93,6 +93,10 @@ object Connect {
         fun abrirVod(chave: String, temp: Int?, ep: Int?, fonte: Int?) {}
         fun pausarOuRetomarVod() {}
         fun avancarOuVoltarVod(ms: Long, delta: Long?) {}
+        /** Episódios de uma temporada da série no ar: [{numero, titulo, visto}] (responde fora da thread principal se preciso). */
+        fun episodiosDaTemporada(temporada: Int, responder: (JSONArray) -> Unit) { responder(JSONArray()) }
+        /** Troca para outro episódio da série no ar. */
+        fun escolherEpisodio(temporada: Int, episodio: Int) {}
         fun ajustarVolume(delta: Int?, set: Float?, mute: Boolean?) {}
         fun preencherTexto(texto: String) {}
         fun onPhoneAudioChanged(phoneAudioList: List<PhoneAudioStatus>) {}
@@ -323,6 +327,15 @@ object Connect {
     }
 
     /** Dispara o estado atual da TV para todos os celulares conectados */
+    /** Mensagem avulsa para todos os celulares autenticados (ex.: a lista de episódios). */
+    fun enviarParaTodos(msg: JSONObject) {
+        if (clientes.isEmpty()) return
+        val texto = msg.toString()
+        handler.post {
+            for (c in clientes) if (c.autenticado) runCatching { c.enviarTexto(texto) }
+        }
+    }
+
     fun notificarMudancaDeEstado() {
         if (clientes.isEmpty()) return
         handler.post {
@@ -967,6 +980,17 @@ object Connect {
                     "fonte" -> {
                         val delta = json.optInt("delta", 1)
                         lis?.trocarFonte(delta)
+                    }
+                    "episodios" -> {
+                        val temporada = json.optInt("temporada", 0)
+                        lis?.episodiosDaTemporada(temporada) { lista ->
+                            enviarParaTodos(JSONObject().put("t", "episodios").put("temporada", temporada).put("lista", lista))
+                        }
+                    }
+                    "episodio" -> {
+                        val temporada = json.optInt("temporada", 0)
+                        val episodio = json.optInt("episodio", 0)
+                        if (temporada > 0 && episodio > 0) handler.post { lis?.escolherEpisodio(temporada, episodio) }
                     }
                     "key" -> {
                         val code = json.optString("code")
