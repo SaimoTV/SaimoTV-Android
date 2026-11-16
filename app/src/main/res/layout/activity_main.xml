@@ -346,6 +346,14 @@
             android:textColor="@color/text_secondary"
             android:textSize="16sp" />
     </LinearLayout>
+    <!-- Logo do canal que enche de cor enquanto ele abre. -->
+    <br.com.saimo.tv.LogoCarregando
+        android:id="@+id/logoAoVivo"
+        android:layout_width="150dp"
+        android:layout_height="150dp"
+        android:layout_gravity="center"
+        android:layout_marginBottom="190dp"
+        android:visibility="gone" />
     <!-- Estado do canal: ligando, reconectando, número digitado. -->
     <TextView
         android:id="@+id/status"

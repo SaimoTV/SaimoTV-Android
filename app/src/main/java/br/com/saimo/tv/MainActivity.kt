@@ -43,6 +43,7 @@ import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import coil3.asDrawable
 import coil3.dispose
 import coil3.load
 import kotlinx.coroutines.launch
@@ -117,6 +118,7 @@ class MainActivity : AppCompatActivity(), Connect.Listener, Painel.Ouvinte {
     private lateinit var bannerSource: TextView
     private lateinit var bannerTimes: TextView
     private lateinit var status: TextView
+    private lateinit var logoAoVivo: LogoCarregando
     private lateinit var listHeader: View
     private lateinit var numpad: View
     private lateinit var numpadValue: TextView
@@ -238,6 +240,7 @@ class MainActivity : AppCompatActivity(), Connect.Listener, Painel.Ouvinte {
         bannerSource = findViewById(R.id.bannerSource)
         bannerTimes = findViewById(R.id.bannerTimes)
         status = findViewById(R.id.status)
+        logoAoVivo = findViewById(R.id.logoAoVivo)
         listHeader = findViewById(R.id.listHeader)
         numpad = findViewById(R.id.numpad)
         numpadValue = findViewById(R.id.numpadValue)
@@ -519,6 +522,7 @@ class MainActivity : AppCompatActivity(), Connect.Listener, Painel.Ouvinte {
         bitrateDinâmicoBps = 0L
         ultimoVideoSize = null
         showStatus(getString(if (apósFalha) R.string.loading_outra else R.string.loading))
+        mostrarLogoAoAbrir(channel)
         handler.removeCallbacks(sourceTimeout)
         handler.postDelayed(sourceTimeout, SOURCE_TIMEOUT_MS)
         Upscaling.aplicar(player)
@@ -627,6 +631,7 @@ override fun onVideoSizeChanged(videoSize: VideoSize) {
                 ultimaImagem = android.os.SystemClock.elapsedRealtime()
                 handler.removeCallbacks(sourceTimeout)
                 status.visibility = View.GONE
+                logoAoVivo.visibility = View.GONE
                 startGuide()
                 Connect.notificarMudancaDeEstado()
             }
@@ -1297,6 +1302,7 @@ override fun onVideoSizeChanged(videoSize: VideoSize) {
      * tentar de novo, ou ir a um canal parecido que esteja funcionando.
      */
     private fun canalForaDoAr(canal: Channel) {
+        logoAoVivo.visibility = View.GONE
         showStatus(getString(R.string.unavailable))
         if (isFinishing || isDestroyed) return
         val secao = Categorias.de(canal)
@@ -1923,6 +1929,22 @@ override fun onVideoSizeChanged(videoSize: VideoSize) {
     private fun showStatus(text: String) {
         status.text = text
         status.visibility = View.VISIBLE
+    }
+
+    /** A logo do canal em cinza, enchendo de cor até a imagem aparecer. */
+    private var logoMostrada: String? = null
+    private fun mostrarLogoAoAbrir(canal: Channel) {
+        if (logoMostrada != canal.logo || logoMostrada == null) {
+            logoMostrada = canal.logo
+            logoAoVivo.definir(androidx.core.content.ContextCompat.getDrawable(this, R.mipmap.ic_launcher_frente))
+            canal.logo?.let { url ->
+                coil3.ImageLoader(this).enqueue(
+                    coil3.request.ImageRequest.Builder(this).data(url)
+                        .target { logoAoVivo.definir(it.asDrawable(resources)) }.build()
+                )
+            }
+        }
+        logoAoVivo.visibility = View.VISIBLE
     }
 
     /**
