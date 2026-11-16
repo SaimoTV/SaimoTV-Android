@@ -1756,10 +1756,15 @@ class PlayerActivity : AppCompatActivity(), Connect.Listener {
             s0Obj.put("logo", imagemDoTitulo ?: Generos.capa(alvo.titulo, alvo.serie) ?: "")
             s0Obj.put("program", subtitulo.text?.toString() ?: "")
             s0Obj.put("sourceIndex", fonte)
+            // O endereço que o player está tocando de fato: nas séries a fonte
+            // costuma ser um endereço que só vale depois de resolvido, e o
+            // celular (som no celular) não conseguia abrir o endereço cru.
+            val cabecalhos = opcaoAtual.headers
+            fun cabecalho(nome: String) = cabecalhos.entries.firstOrNull { it.key.equals(nome, ignoreCase = true) }?.value
             s0Obj.put("source", JSONObject().apply {
-                put("url", opcaoAtual.url)
-                put("referer", JSONObject.NULL)
-                put("userAgent", JSONObject.NULL)
+                put("url", urlTocando?.takeIf { it.isNotBlank() } ?: opcaoAtual.url)
+                put("referer", cabecalho("Referer") ?: JSONObject.NULL)
+                put("userAgent", cabecalho("User-Agent") ?: JSONObject.NULL)
                 put("keyId", JSONObject.NULL)
                 put("key", JSONObject.NULL)
             })
