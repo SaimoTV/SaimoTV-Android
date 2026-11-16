@@ -52,6 +52,10 @@ object Resolvedor404 {
         }
     }
 
+    private const val NIX_BASE = "https://nixplay.lat"
+    private const val NIX_USER = "saimo-vods"
+    private const val NIX_PASS = "221097"
+
     private val http: OkHttpClient by lazy {
         OkHttpClient.Builder()
             .connectTimeout(6, TimeUnit.SECONDS)
@@ -59,6 +63,37 @@ object Resolvedor404 {
             .followRedirects(true)
             .followSslRedirects(true)
             .build()
+    }
+
+    private val httpNoRedirect: OkHttpClient by lazy {
+        OkHttpClient.Builder()
+            .connectTimeout(4, TimeUnit.SECONDS)
+            .readTimeout(5, TimeUnit.SECONDS)
+            .followRedirects(false)
+            .followSslRedirects(false)
+            .build()
+    }
+
+    private fun testarNixplay(url: String): Boolean {
+        return try {
+            val req = Request.Builder()
+                .url(url)
+                .header("User-Agent", "Mozilla/5.0")
+                .header("Range", "bytes=0-1023")
+                .build()
+            httpNoRedirect.newCall(req).execute().use { r ->
+                if (r.code in 300..399) return true
+                if (r.isSuccessful) {
+                    val ct = r.header("Content-Type")?.lowercase() ?: ""
+                    if (ct.contains("video/") || ct.contains("octet-stream")) return true
+                    val corpo = r.body?.string().orEmpty()
+                    return !corpo.contains("ERRO:") && !corpo.contains("não encontrado")
+                }
+                false
+            }
+        } catch (_: Exception) {
+            false
+        }
     }
 
     private val cache = ConcurrentHashMap<String, Pair<Long, Map<String, List<String>>>>()
@@ -108,7 +143,14 @@ object Resolvedor404 {
                     if (serie) "$imdbId:$temporada:$numero" else imdbId
                 } else null
 
-                val (crus, cadeia) = coroutineScope {
+                val nixUrl = if (serie) {
+                    "$NIX_BASE/series/$NIX_USER/$NIX_PASS/$tmdbId/$temporada/$numero.mp4"
+                } else {
+                    "$NIX_BASE/movie/$NIX_USER/$NIX_PASS/$tmdbId.mp4"
+                }
+
+                val (crus, cadeia, nixValido) = coroutineScope {
+                    val futNix = async { if (testarNixplay(nixUrl)) nixUrl else null }
                     val futsComuns = bases.map { (nome, base) ->
                         async { buscarPor(nome, base, tipo, mid, imdbMid) }
                     }
@@ -119,11 +161,16 @@ object Resolvedor404 {
                         else if (temporada > 0 && numero > 0) RedeFlix404.buscar("series", mid)
                         else emptyList()
                     }
-                    futsComuns.awaitAll().flatten() to futCadeia.await()
+                    Triple(futsComuns.awaitAll().flatten(), futCadeia.await(), futNix.await())
                 }
 
                 val vistos = mutableSetOf<String>()
                 val fontes = linkedMapOf<String, MutableList<String>>()
+                // Nixplay oficial entra em primeiro lugar absoluto (posição 0 de dub)
+                if (nixValido != null) {
+                    vistos.add(nixValido)
+                    fontes.getOrPut("dub") { mutableListOf() }.add(nixValido)
+                }
                 for ((versao, url) in crus) {
                     if (vistos.add(url)) fontes.getOrPut(versao) { mutableListOf() }.add(url)
                 }
