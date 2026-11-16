@@ -26,11 +26,18 @@ object MeuGuia {
     /// Em aparelho de 1 GB, duas: cada página vira String e lista inteiras.
     private val gate by lazy { Semaphore(if (Aparelho.poucaMemoria) 2 else 6) }
 
-    suspend fun fetch(names: List<String>, from: Long, to: Long): Map<String, List<Programme>> =
+    suspend fun fetch(
+        names: List<String>,
+        from: Long,
+        to: Long,
+        central: Map<String, List<Programme>>? = null,
+    ): Map<String, List<Programme>> =
         coroutineScope {
             names.mapNotNull { name -> (CODES[name] ?: CODES[Epg.normalise(name)])?.let { name to it } }
                 .map { (name, code) ->
                     async(Dispatchers.IO) {
+                        // Já no guia central: nada a baixar.
+                        central?.get(code)?.let { return@async name to it }
                         // O parse dentro da vez: fora dela, as páginas baixadas
                         // esperavam juntas na memória.
                         val lista = gate.withPermit {

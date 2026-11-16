@@ -171,7 +171,9 @@ object Epg {
 
         // guiadetv primeiro: cobre 121+ canais com horários precisos no fuso
         // de Brasília, sem bloqueio 429 e com sinopse em 99,8% dos programas.
-        merged.putAll(runCatching { GuiaDeTv.fetch(names, from, to) }.getOrNull().orEmpty())
+        // Guia central (um arquivo, montado no servidor): o que estiver nele não é baixado.
+        val central = withContext(Dispatchers.IO) { GuiaCentral.carregar(from, to) }
+        merged.putAll(runCatching { GuiaDeTv.fetch(names, from, to, central?.guiadetv) }.getOrNull().orEmpty())
         if (merged.isNotEmpty()) publish()
 
         val urlPluto = PLUTO_URL
@@ -186,7 +188,7 @@ object Epg {
         // meuguia como reserva: só para quem o guiadetv não listou (ex.: Canal Brasil).
         val faltandoMeuGuia = names.filter { merged[it] == null }
         if (faltandoMeuGuia.isNotEmpty()) {
-            merged.putAll(runCatching { MeuGuia.fetch(faltandoMeuGuia, from, to) }.getOrNull().orEmpty())
+            merged.putAll(runCatching { MeuGuia.fetch(faltandoMeuGuia, from, to, central?.meuguia) }.getOrNull().orEmpty())
             if (merged.isNotEmpty()) publish()
         }
 

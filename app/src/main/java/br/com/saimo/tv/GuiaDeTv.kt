@@ -30,7 +30,12 @@ object GuiaDeTv {
     /// Em aparelho de 1 GB, 2 por vez; nos demais, 6.
     private val gate by lazy { Semaphore(if (Aparelho.poucaMemoria) 2 else 6) }
 
-    suspend fun fetch(names: List<String>, from: Long, to: Long): Map<String, List<Programme>> =
+    suspend fun fetch(
+        names: List<String>,
+        from: Long,
+        to: Long,
+        central: Map<String, List<Programme>>? = null,
+    ): Map<String, List<Programme>> =
         coroutineScope {
             // Agrupar canais por slug para baixar cada página apenas uma vez
             val slugToNames = LinkedHashMap<String, MutableList<String>>()
@@ -42,6 +47,8 @@ object GuiaDeTv {
 
             val results = slugToNames.keys.map { slug ->
                 async(Dispatchers.IO) {
+                    // Já no guia central: nada a baixar.
+                    central?.get(slug)?.let { return@async slug to it }
                     val lista = gate.withPermit {
                         runCatching {
                             parse(Epg.download(if (slug.startsWith("http")) slug else "https://www.guiadetv.com/canal/$slug"))
