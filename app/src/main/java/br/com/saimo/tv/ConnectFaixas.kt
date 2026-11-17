@@ -28,18 +28,24 @@ object ConnectFaixas {
         val semLegenda = p.trackSelectionParameters.disabledTrackTypes.contains(C.TRACK_TYPE_TEXT) || l.none { it.isSelected }
         return JSONObject()
             .put("audio", JSONArray().apply {
-                for (g in a) {
-                    val f = g.getTrackFormat(0)
-                    put(JSONObject().put("rotulo", Faixas.idioma(context, f.language, f.label)).put("ativa", g.isSelected))
-                }
+                val nomes = distintos(a.map { g -> g.getTrackFormat(0).let { Faixas.idioma(context, it.language, it.label) } })
+                a.forEachIndexed { i, g -> put(JSONObject().put("rotulo", nomes[i]).put("ativa", g.isSelected)) }
             })
             .put("legendas", JSONArray().apply {
-                for (g in l) {
+                val nomes = distintos(l.map { g ->
                     val f = g.getTrackFormat(0)
-                    put(JSONObject().put("rotulo", Faixas.idioma(context, f.language, f.label)).put("ativa", g.isSelected && !semLegenda))
-                }
+                    val cc = f.sampleMimeType.orEmpty().contains("cea") || f.codecs.orEmpty().contains("cea")
+                    Faixas.idioma(context, f.language, f.label) + if (cc) " (CC)" else ""
+                })
+                l.forEachIndexed { i, g -> put(JSONObject().put("rotulo", nomes[i]).put("ativa", g.isSelected && !semLegenda)) }
             })
             .put("semLegenda", semLegenda)
+    }
+
+    /** Nomes repetidos ("English", "English") ganham número: "English", "English 2". */
+    private fun distintos(nomes: List<String>): List<String> {
+        val vistos = HashMap<String, Int>()
+        return nomes.map { n -> val k = (vistos[n] ?: 0) + 1; vistos[n] = k; if (k == 1) n else "$n $k" }
     }
 
     fun escolher(p: ExoPlayer?, tipo: String, indice: Int) {
