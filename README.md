@@ -291,6 +291,15 @@ Detecção de "pouca memória" em `Aparelho.kt` (isLowRamDevice ou até 1,5 GB).
 | `Connect`, `ConnectHls`, `Sincronia` | Saimo Connect: controle pelo celular (porta 8999, `/info`, `/ws`) e o som no celular sincronizado (abaixo) |
 | `SincroniaConnect` | Sincronia pelo Saimo Connect (`{"t":"dados"}`, mesmo formato na TV Box, Mac, Windows e celular): ao conectar e a cada mudança vão onde parou em filmes e episódios, títulos favoritos, canais favoritos, os dois endereços das listas (vale o escolhido por último; quem nunca escolheu fica com o do outro aparelho) e as listas adicionadas por link (união; a que veio de arquivo fica só no aparelho). |
 
+**Saimo Connect 2** (TV Box 3.2.1+): o estado enviado ao celular traz `versaoConnect: 2`,
+`recursos` (o que esta TV sabe fazer), `fontes` [{rotulo, detalhe}] e `fonteAtual`,
+`faixas` {audio, legendas, semLegenda}, `favorito` e `timer` (minutos). Comandos novos:
+`{t:"fonte", indice}` (sem `indice`, o `delta` de antes), `{t:"faixa", tipo:"audio"|"legenda", indice}`
+(-1 desliga a legenda), `{t:"favorito"}`, `{t:"anterior"}`, `{t:"timer", min}` (0 desliga) e
+`{t:"abrir", tela}` (inicio, aovivo, ondemand, eventos, radios, busca, ajustes, perfis). Lado da
+TV em `Connect.kt` e `ConnectFaixas.kt`; o celular mostra só o que vier em `recursos`.
+
+
 ## Telemetria por amostra
 
 O monitor é cobrado por pedido, então só uma fatia fixa dos aparelhos fala com
