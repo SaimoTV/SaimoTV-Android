@@ -255,16 +255,16 @@
     <string name="menu_ajustes">Ajustes</string>
     <string name="menu_apoie">Apoie</string>
     <string name="doacao_tag">Comunidade Saimo TV</string>
-    <string name="doacao_titulo">Ajude a manter tudo %1$s</string>
+    <string name="doacao_titulo">Ajude a manter o Saimo TV %1$s</string>
     <string name="doacao_titulo_destaque" formatted="false">100% gratuito</string>
-    <string name="doacao_sub">Sem anúncios, sem mensalidade e livre para todo mundo.</string>
-    <string name="doacao_historia">Manter servidores rápidos, a transmissão e as atualizações de todo dia custa dinheiro todo mês. Quem puder ajudar com qualquer valor faz uma diferença enorme para o Saimo TV continuar no ar para todos. Agora o Pix é direto: o valor vai direto para o desenvolvedor, Gabriel Saimo Ferreira, sem intermediário. Aponte a câmera do celular para o QR code ou copie o código Pix e cole no app do seu banco.</string>
+    <string name="doacao_sub">Sem anúncios e sem mensalidade.</string>
+    <string name="doacao_historia">O Saimo TV é um player: ele toca as listas e os links que você mesmo adiciona. O app não traz nenhum canal, filme ou série dentro; o que você assiste vem das suas próprias listas. O desenvolvimento e as atualizações do app e do site custam dinheiro todo mês. Quem puder ajudar com qualquer valor faz uma diferença enorme para o Saimo TV continuar gratuito e sem anúncios. Agora o Pix é direto: o valor vai direto para o desenvolvedor, Gabriel Saimo Ferreira, sem intermediário. Aponte a câmera do celular para o QR code ou copie o código Pix e cole no app do seu banco.</string>
     <string name="doacao_v1_titulo">Zero anúncios</string>
-    <string name="doacao_v1_texto">Nada interrompendo o que você assiste</string>
-    <string name="doacao_v2_titulo">Servidores rápidos</string>
-    <string name="doacao_v2_texto">Transmissão estável e em alta qualidade</string>
+    <string name="doacao_v1_texto">Nada interrompendo o que você usa</string>
+    <string name="doacao_v2_titulo">Atualizações constantes</string>
+    <string name="doacao_v2_texto">Melhorias e correções para o app e o site</string>
     <string name="doacao_v3_titulo">Sem mensalidade</string>
-    <string name="doacao_v3_texto">Canais, filmes e séries para todo mundo</string>
+    <string name="doacao_v3_texto">O app é gratuito para todo mundo</string>
     <string name="doacao_camera">Aponte a câmera do celular</string>
     <string name="doacao_qr_descricao">QR code para doar</string>
     <string name="doacao_link_visivel">Pix direto</string>
