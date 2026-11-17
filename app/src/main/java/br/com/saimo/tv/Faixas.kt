@@ -127,7 +127,7 @@ object Faixas {
         else -> "${altura}p"
     }
 
-    private fun idioma(tela: Activity, codigo: String?, rotulo: String?): String {
+    fun idioma(tela: android.content.Context, codigo: String?, rotulo: String?): String {
         if (!rotulo.isNullOrBlank()) return rotulo
         if (codigo.isNullOrBlank() || codigo == "und") return tela.getString(R.string.player_idioma_padrao)
         return Locale(codigo).getDisplayLanguage(Locale("pt", "BR")).replaceFirstChar { it.uppercase() }

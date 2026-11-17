@@ -1556,21 +1556,44 @@ class PlayerActivity : AppCompatActivity(), Connect.Listener {
             } else {
                 Titulos.rotulo(opcao.versao)
             }
-            Painel.Item(tituloPrincipal, detalhe, marcado = i == fonte) {
-                if (i == fonte) return@Item
-                val ponto = player?.currentPosition ?: 0L
-                fonte = i
-                // A automática segue dali para a frente, como sempre.
-                tentadas.clear(); semVideo = false; tentadas += 0 until i
-                if (opcao.versao != versao) {
-                    versao = opcao.versao
-                    atualizarTitulos()
-                }
-                montarBotoes()
-                carregarLegendas(opcao)
-                tocarFonte(ponto, manual = true)
-            }
+            Painel.Item(tituloPrincipal, detalhe, marcado = i == fonte) { escolherFonteManual(i) }
         })
+    }
+
+    private fun escolherFonteManual(i: Int) {
+        val opcao = opcoes.getOrNull(i) ?: return
+        if (i == fonte) return
+        val ponto = player?.currentPosition ?: 0L
+        fonte = i
+        // A automática segue dali para a frente, como sempre.
+        tentadas.clear(); semVideo = false; tentadas += 0 until i
+        if (opcao.versao != versao) {
+            versao = opcao.versao
+            atualizarTitulos()
+        }
+        montarBotoes()
+        carregarLegendas(opcao)
+        tocarFonte(ponto, manual = true)
+        Connect.notificarMudancaDeEstado()
+    }
+
+    // ---------- Saimo Connect 2 ----------
+
+    override fun fontes(): JSONArray = JSONArray().apply {
+        opcoes.forEachIndexed { i, o ->
+            val rotulo = if (o.ehAddon) "${getString(R.string.player_fonte_n, i + 1)} · ${o.origem}" else getString(R.string.player_fonte_n, i + 1)
+            put(JSONObject().put("rotulo", rotulo).put("detalhe", Titulos.rotulo(o.versao)))
+        }
+    }
+
+    override fun fonteAtual(): Int = fonte
+
+    override fun escolherFonteDoConnect(indice: Int) { runOnUiThread { escolherFonteManual(indice) } }
+
+    override fun faixas(): JSONObject? = player?.let { ConnectFaixas.json(this, it) }
+
+    override fun escolherFaixa(tipo: String, indice: Int) {
+        runOnUiThread { player?.let { ConnectFaixas.escolher(it, tipo, indice) } }
     }
 
     private fun painelFaixas() {
