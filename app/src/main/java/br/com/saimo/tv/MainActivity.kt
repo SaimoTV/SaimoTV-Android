@@ -2299,6 +2299,42 @@ override fun onVideoSizeChanged(videoSize: VideoSize) {
         Connect.notificarMudancaDeEstado()
     }
 
+    // ---------- Saimo Connect 2 ----------
+
+    override fun fontes(): JSONArray {
+        val c = ordered.getOrNull(current) ?: return JSONArray()
+        return JSONArray().apply {
+            c.sources.forEachIndexed { i, f ->
+                put(JSONObject().put("rotulo", f.nome ?: getString(R.string.fontes_item_amigavel, i + 1))
+                    .put("detalhe", f.quality?.takeUnless { it.equals("Qualidade não informada", true) } ?: ""))
+            }
+        }
+    }
+
+    override fun fonteAtual(): Int = sourceIndex
+
+    override fun escolherFonteDoConnect(indice: Int) {
+        if (ordered.getOrNull(current)?.sources?.getOrNull(indice) == null) return
+        retries = 0
+        play(current, indice)
+        Connect.notificarMudancaDeEstado()
+    }
+
+    override fun faixas(): JSONObject? = if (::player.isInitialized) ConnectFaixas.json(this, player) else null
+
+    override fun escolherFaixa(tipo: String, indice: Int) {
+        if (::player.isInitialized) ConnectFaixas.escolher(player, tipo, indice)
+    }
+
+    override fun favoritoAtual(): Boolean? = ordered.getOrNull(current)?.let { Favorites.contains(it.name) }
+
+    override fun alternarFavorito() {
+        val c = ordered.getOrNull(current) ?: return
+        Favorites.toggle(this, c.name)
+    }
+
+    override fun irAoCanalAnterior() { canalAnterior() }
+
     override fun trocarFonte(delta: Int) {
         val c = ordered.getOrNull(current) ?: return
         val novasFontes = c.sources.size

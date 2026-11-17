@@ -89,6 +89,19 @@ object Connect {
         fun definirMetadeAtiva(metade: Int) {}
         fun definirTvAudio(som: String) {}
         fun trocarFonte(delta: Int) {}
+        /** Connect 2: as fontes do que está tocando, para o celular mostrar a lista ([{rotulo, detalhe}]). */
+        fun fontes(): JSONArray = JSONArray()
+        /** Índice da fonte no ar (na lista de [fontes]). */
+        fun fonteAtual(): Int = -1
+        fun escolherFonteDoConnect(indice: Int) {}
+        /** Áudio e legendas do que está tocando: {audio:[{rotulo, ativa}], legendas:[{rotulo, ativa}]}. */
+        fun faixas(): JSONObject? = null
+        /** tipo "audio" ou "legenda"; índice -1 na legenda desliga. */
+        fun escolherFaixa(tipo: String, indice: Int) {}
+        /** O canal no ar é favorito? null = não se aplica (filme, rádio). */
+        fun favoritoAtual(): Boolean? = null
+        fun alternarFavorito() {}
+        fun irAoCanalAnterior() {}
         fun simularTecla(keyCode: Int): Boolean = false
         fun abrirVod(chave: String, temp: Int?, ep: Int?, fonte: Int?) {}
         fun pausarOuRetomarVod() {}
@@ -385,6 +398,18 @@ object Connect {
             }
         }
         estado.put("tvAudio", tvAudio)
+        // Connect 2: o que o celular precisa para mostrar listas em vez de só "próxima".
+        if (lis != null) runCatching {
+            val fontes = lis.fontes()
+            if (fontes.length() > 0) {
+                estado.put("fontes", fontes)
+                estado.put("fonteAtual", lis.fonteAtual())
+            }
+            lis.faixas()?.let { estado.put("faixas", it) }
+            lis.favoritoAtual()?.let { estado.put("favorito", it) }
+        }
+        estado.put("timer", if (TimerDeSono.ativo) TimerDeSono.restanteMin() else 0)
+        estado.put("versaoConnect", 2)
         val audioArr = JSONArray()
         for (status in phoneAudioMap.values) {
             audioArr.put(JSONObject().apply {
@@ -978,8 +1003,41 @@ object Connect {
                         lis?.avancarOuVoltarVod(ms, delta)
                     }
                     "fonte" -> {
-                        val delta = json.optInt("delta", 1)
-                        lis?.trocarFonte(delta)
+                        // Connect 2: "indice" escolhe uma fonte da lista; sem ele, anda "delta" (próxima/anterior).
+                        if (json.has("indice")) handler.post { lis?.escolherFonteDoConnect(json.optInt("indice")) }
+                        else lis?.trocarFonte(json.optInt("delta", 1))
+                    }
+                    "faixa" -> {
+                        val tipoFaixa = json.optString("tipo")
+                        val indice = json.optInt("indice", -1)
+                        handler.post { lis?.escolherFaixa(tipoFaixa, indice); notificarMudancaDeEstado() }
+                    }
+                    "favorito" -> handler.post { lis?.alternarFavorito(); notificarMudancaDeEstado() }
+                    "anterior" -> handler.post { lis?.irAoCanalAnterior() }
+                    "timer" -> {
+                        val min = json.optInt("min", 0)
+                        handler.post {
+                            if (min > 0) TimerDeSono.ligar(min) else TimerDeSono.desligar()
+                            notificarMudancaDeEstado()
+                        }
+                    }
+                    "abrir" -> {
+                        // Leva a TV direto a uma tela, como as abas do menu do topo.
+                        val destino = when (json.optString("tela")) {
+                            "inicio" -> EscolhaActivity::class.java
+                            "aovivo" -> MainActivity::class.java
+                            "ondemand" -> OnDemandActivity::class.java
+                            "eventos" -> EventosActivity::class.java
+                            "radios" -> RadiosActivity::class.java
+                            "busca" -> BuscaActivity::class.java
+                            "ajustes" -> AjustesActivity::class.java
+                            "perfis" -> PerfisActivity::class.java
+                            else -> null
+                        }
+                        if (destino != null) handler.post {
+                            val base = SaimoApp.atividadeAtual ?: context
+                            base.startActivity(Intent(base, destino).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP))
+                        }
                     }
                     "episodios" -> {
                         val temporada = json.optInt("temporada", 0)
