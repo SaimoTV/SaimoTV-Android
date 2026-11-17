@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Apoie o Saimo TV: texto à esquerda, QR code e link à direita. -->
+<!-- Apoie o Saimo TV: texto à esquerda, QR code do Pix direto e instrução à direita. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -101,6 +101,15 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
             android:text="@string/doacao_pix"
+            android:textColor="#FF5B6475"
+            android:textSize="11sp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:gravity="center"
+            android:text="@string/doacao_instrucao"
             android:textColor="#FF5B6475"
             android:textSize="10sp" />
     </LinearLayout>

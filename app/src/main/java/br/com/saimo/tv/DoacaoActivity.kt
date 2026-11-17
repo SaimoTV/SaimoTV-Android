@@ -12,8 +12,8 @@ import android.widget.TextView
 import androidx.media3.common.util.UnstableApi
 
 /**
- * Apoie o Saimo TV: por que doar, o QR code (o pagamento é feito no celular)
- * e o link escrito.
+ * Apoie o Saimo TV: por que doar, o QR code do Pix direto (o pagamento é feito no celular)
+ * e o nome do favorecido.
  */
 @UnstableApi
 class DoacaoActivity : TelaComMenu() {
@@ -66,9 +66,5 @@ class DoacaoActivity : TelaComMenu() {
                 })
             })
         }
-    }
-
-    companion object {
-        const val LINK = "https://deflow.exchange/pt/qr/saimo-tv"
     }
 }
