@@ -410,6 +410,8 @@ object Connect {
         }
         estado.put("timer", if (TimerDeSono.ativo) TimerDeSono.restanteMin() else 0)
         estado.put("versaoConnect", 2)
+        // O que esta TV sabe fazer pelo Connect 2: o celular só mostra o que estiver aqui.
+        estado.put("recursos", JSONArray(listOf("fontes", "faixas", "favorito", "anterior", "timer", "telas")))
         val audioArr = JSONArray()
         for (status in phoneAudioMap.values) {
             audioArr.put(JSONObject().apply {
