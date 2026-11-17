@@ -380,3 +380,15 @@ adb shell am start -a android.intent.action.VIEW -d "saimo://canal?n=Band"
 # (a lista de reserva embutida foi removida: o app não traz listas)
 python3 scripts/gen_icons.py     # ícone (legado e em camadas) e banner a partir da arte do Mac, com folga para o Fire TV
 ```
+
+## Perfis, Kids e controle parental (3.2.0)
+
+Contrato comum dos apps: `SaimoPlayer/docs/perfis.md`. Até 10 perfis, cada um com avatar (21, de
+`SaimoPlayer/docs/avatares`), os seus favoritos, onde parou e recentes; listas, fontes e ajustes valem
+para o aparelho todo. O perfil principal usa os dados de antes (ninguém perde nada ao atualizar).
+Com 2 ou mais perfis o app abre em "Quem está assistindo?". Perfil Kids: só filmes e séries com
+classificação até 12 anos (sem classificação, escondido), nada adulto, sem addons; sair dele,
+gerenciar perfis e abrir os Ajustes pedem um código de 4 dígitos (guardado como SHA-256). Controle
+parental visível no fim dos Ajustes, discreto: senha padrão 0000, trocável; no Kids nunca libera.
+
+Aqui: `Perfis.kt` (arquivos de preferências `nome@id`), `PerfisActivity.kt` (telas), `Kids.kt` (filtro em `Vod`/`Destaques` e a senha em `Parental`), `CaixaDeCodigo.kt`; o avatar fica no lugar do ícone do menu. A sincronia (`SincroniaConnect.kt`) leva `perfis` e `perfisRemovidos`.
