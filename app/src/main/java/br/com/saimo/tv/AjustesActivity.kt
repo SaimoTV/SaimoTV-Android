@@ -91,6 +91,15 @@ class AjustesActivity : TelaComMenu() {
         lista.adapter = adaptador
         adaptador.linhas = linhas()
         focarQuandoPronto { lista.findViewHolderForAdapterPosition(1)?.itemView }
+        // No perfil Kids os Ajustes pedem o código: a criança não mexe nas listas nem nos ajustes.
+        val perfil = Perfis.ativo()
+        if (savedInstanceState == null && Perfis.pedeCodigo(perfil)) {
+            lista.visibility = android.view.View.INVISIBLE
+            CaixaDeCodigo.pedir(this, "Código do perfil ${perfil.nome}", "Os Ajustes ficam trancados no perfil Kids. Digite o código para abrir.",
+                listOf("Código"), { v ->
+                    if (Perfis.conferirCodigo(perfil, v[0])) { lista.visibility = android.view.View.VISIBLE; null } else "Código errado. Tente de novo."
+                }, aoCancelar = { finish() })
+        }
     }
 
     override fun onResume() {
@@ -216,7 +225,32 @@ class AjustesActivity : TelaComMenu() {
         Opcao(getString(R.string.ajustes_telemetria), { simNao(Preferencias.telemetria) }) {
             Preferencias.telemetria = !Preferencias.telemetria; redesenhar()
         },
-    )
+    ) + controleParental()
+
+    /** Controle parental: no fim, separado e discreto. No perfil Kids não aparece. */
+    private fun controleParental(): List<Linha> {
+        if (Kids.ativo()) return emptyList()
+        return listOf(
+            Secao("Controle parental"),
+            Opcao("Conteúdo adulto", { if (Unlock.unlocked) "Liberado (OK bloqueia)" else "Bloqueado" }) {
+                if (Unlock.unlocked) { Unlock.bloquear(); redesenhar(); return@Opcao }
+                val dica = if (Parental.ehPadrao(this)) "Digite a senha. A senha inicial é ${Parental.PADRAO}." else "Digite a senha."
+                CaixaDeCodigo.pedir(this, "Controle parental", dica, listOf("Senha"), { v ->
+                    if (Unlock.liberar(this, v[0])) { redesenhar(); null } else "Senha errada."
+                })
+            },
+            Opcao("Trocar a senha", { if (Parental.ehPadrao(this)) "Senha inicial: ${Parental.PADRAO}" else "Senha própria" }) {
+                CaixaDeCodigo.pedir(this, "Controle parental", "Digite a senha atual e a nova (4 números).",
+                    listOf("Senha atual", "Senha nova"), { v ->
+                        when {
+                            !Parental.conferir(this, v[0]) -> "Senha atual errada."
+                            !Parental.trocar(this, v[0], v[1]) -> "A senha nova tem 4 números."
+                            else -> { redesenhar(); null }
+                        }
+                    })
+            },
+        )
+    }
 
     private fun <T> escolher(titulo: String, valores: List<T>, atual: T, nome: (T) -> String, aoEscolher: (T) -> Unit) {
         Painel.mostrar(this, titulo, valores.map { v ->

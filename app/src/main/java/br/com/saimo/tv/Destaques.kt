@@ -50,7 +50,15 @@ object Destaques {
     @Volatile
     private var lidas: Pair<Long, List<Fila>>? = null
 
-    suspend fun filas(context: Context): List<Fila> = withContext(Dispatchers.IO) {
+    /** As fileiras; no perfil Kids, só os títulos liberados (Kids.kt). */
+    suspend fun filas(context: Context): List<Fila> {
+        val todas = filasBruto(context)
+        if (!Kids.ativo()) return todas
+        return todas.map { f -> f.copy(itens = Kids.filtrar(context, f.itens, { it.titulo }, { i -> if (i.tipo == 'f') false else if (i.tipo == 's') true else null })) }
+            .filter { it.itens.isNotEmpty() }
+    }
+
+    private suspend fun filasBruto(context: Context): List<Fila> = withContext(Dispatchers.IO) {
         val local = File(File(context.filesDir, "vod"), ARQUIVO)
         val dentroDoPrazo = local.exists() && System.currentTimeMillis() - local.lastModified() < VALIDADE_MS
         lidas?.let { (quando, filas) -> if (dentroDoPrazo && quando == local.lastModified()) return@withContext filas }

@@ -92,7 +92,8 @@ object SincroniaConnect {
         for (p in Perfis.todos()) {
             val (pr, ft, fc) = if (p.id == Perfis.PRINCIPAL) Triple(progresso, favTitulos, favCanais) else dadosDoPerfil(context, p.id)
             perfis.put(JSONObject().put("id", p.id).put("nome", p.nome).put("avatar", p.avatar).put("em", p.em)
-                .put("progresso", pr).put("favTitulos", ft).put("favCanais", fc))
+                .put("progresso", pr).put("favTitulos", ft).put("favCanais", fc)
+                .apply { if (p.kids) { put("kids", true); put("codigo", p.codigo) } })
         }
         val removidos = JSONArray()
         for (r in Perfis.removidos()) removidos.put(JSONObject().put("id", r.id).put("em", r.em))
@@ -201,7 +202,8 @@ object SincroniaConnect {
             for (i in 0 until lista.length()) {
                 val o = lista.optJSONObject(i) ?: continue
                 val id = o.optString("id").takeIf { it.isNotBlank() } ?: continue
-                remotos += Perfis.Perfil(id, o.optString("nome"), o.optString("avatar"), o.optLong("em")) to o
+                remotos += Perfis.Perfil(id, o.optString("nome"), o.optString("avatar"), o.optLong("em"),
+                    o.optBoolean("kids"), o.optString("codigo")) to o
             }
             val remocoes = mutableListOf<Perfis.Remocao>()
             json.optJSONArray("perfisRemovidos")?.let { r ->

@@ -131,7 +131,7 @@ object Vod {
         pasta.listFiles()?.forEach { if (it.name !in guardar) it.delete() }
     }
 
-    suspend fun filmes(context: Context, letra: String, reservados: Boolean = false,
+    private suspend fun filmesBruto(context: Context, letra: String, reservados: Boolean = false,
                        fresco: Boolean = false): List<Filme> {
         val prefixo = if (reservados) "reservado" else "filmes"
         // Os links vêm como "servidor:id"; sem a lista de servidores, montar
@@ -149,7 +149,7 @@ object Vod {
         }.toList()
     }
 
-    suspend fun series(context: Context, letra: String, fresco: Boolean = false): List<Serie> {
+    private suspend fun seriesBruto(context: Context, letra: String, fresco: Boolean = false): List<Serie> {
         val texto = arquivo(context, "series-${gaveta(letra)}.txt", fresco) ?: return emptyList()
         return texto.lineSequence().mapNotNull { linha ->
             val campos = linha.split("\t")
@@ -196,7 +196,7 @@ object Vod {
      * vinte megabytes — mas o índice de busca tem todos os nomes, e é dele que
      * sai a lista completa. Abrir um título continua indo ao arquivo da letra.
      */
-    suspend fun todos(context: Context, serie: Boolean): List<Achado> =
+    private suspend fun todosBruto(context: Context, serie: Boolean): List<Achado> =
         entradas(context).filter { it.serie == serie }.map { it.achado }
 
     /**
@@ -222,7 +222,7 @@ object Vod {
      * Um título do acervo pelo nome exato, sem copiar o índice: os mapas
      * apontam para os mesmos objetos da busca.
      */
-    suspend fun achar(context: Context, titulo: String, serie: Boolean): Achado? {
+    private suspend fun acharBruto(context: Context, titulo: String, serie: Boolean): Achado? {
         val mapas = porTitulo ?: run {
             val f = HashMap<String, Achado>(40_000)
             val s = HashMap<String, Achado>(12_000)
@@ -259,7 +259,7 @@ object Vod {
      * não achar quase nada, as palavras valem em qualquer ordem e com uma letra
      * trocada — "vingadores ultimato", "avatr", "coracao".
      */
-    suspend fun buscar(context: Context, termo: String, limite: Int = 120): List<Achado> =
+    private suspend fun buscarBruto(context: Context, termo: String, limite: Int = 120): List<Achado> =
         withContext(Dispatchers.Default) {
             val alvo = normalizar(termo)
             if (alvo.isEmpty()) return@withContext emptyList()
@@ -361,7 +361,7 @@ object Vod {
     }
 
     /** Coleções pequenas publicadas pelo gerador RedeFlix, já com episódios. */
-    suspend fun colecao(context: Context, tipo: String): List<SerieColecao> {
+    private suspend fun colecaoBruto(context: Context, tipo: String): List<SerieColecao> {
         require(tipo == "animes" || tipo == "doramas")
         if (bases.isEmpty()) indice(context)
         colecoes[tipo]?.let { return it }
@@ -423,7 +423,7 @@ object Vod {
     }
 
     /** Animes e doramas que batem com o termo — eles não estão no índice de busca. */
-    suspend fun buscarColecoes(context: Context, termo: String): List<Pair<String, SerieColecao>> {
+    private suspend fun buscarColecoesBruto(context: Context, termo: String): List<Pair<String, SerieColecao>> {
         val alvo = normalizar(termo)
         if (alvo.isEmpty()) return emptyList()
         return listOf("animes", "doramas").flatMap { tipo ->
@@ -539,4 +539,27 @@ object Vod {
         if (nome == "busca.txt") { indice = null; porTitulo = null }
         return texto
     }
+
+    // ---------- Perfil Kids: o filtro mora aqui, na leitura (ver Kids.kt) ----------
+
+    suspend fun filmes(context: Context, letra: String, reservados: Boolean = false, fresco: Boolean = false): List<Filme> =
+        Kids.filtrar(context, filmesBruto(context, letra, reservados, fresco), { it.titulo }, { false })
+
+    suspend fun series(context: Context, letra: String, fresco: Boolean = false): List<Serie> =
+        Kids.filtrar(context, seriesBruto(context, letra, fresco), { it.titulo }, { true })
+
+    suspend fun todos(context: Context, serie: Boolean): List<Achado> =
+        Kids.filtrar(context, todosBruto(context, serie), { it.titulo }, { it.serie })
+
+    suspend fun achar(context: Context, titulo: String, serie: Boolean): Achado? =
+        acharBruto(context, titulo, serie)?.let { a -> Kids.filtrar(context, listOf(a), { it.titulo }, { it.serie }).firstOrNull() }
+
+    suspend fun buscar(context: Context, termo: String, limite: Int = 120): List<Achado> =
+        Kids.filtrar(context, buscarBruto(context, termo, limite), { it.titulo }, { it.serie })
+
+    suspend fun colecao(context: Context, tipo: String): List<SerieColecao> =
+        Kids.filtrar(context, colecaoBruto(context, tipo), { it.titulo }, { true })
+
+    suspend fun buscarColecoes(context: Context, termo: String): List<Pair<String, SerieColecao>> =
+        Kids.filtrar(context, buscarColecoesBruto(context, termo), { it.second.titulo }, { true })
 }

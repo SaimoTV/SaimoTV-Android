@@ -31,7 +31,9 @@ object Perfis {
     /** Os arquivos de preferências que são de cada perfil (apagados junto com ele). */
     val ARQUIVOS_DO_PERFIL = listOf("saimo", "vodfav", "progresso", "radios", "lembretes", "novelinhas", "ajustes")
 
-    data class Perfil(val id: String, val nome: String, val avatar: String, val em: Long)
+    /** `kids`: perfil infantil (só títulos até 12 anos, nada adulto); `codigo`: SHA-256 de saimo-kids:<id>:<4 dígitos>. */
+    data class Perfil(val id: String, val nome: String, val avatar: String, val em: Long,
+                      val kids: Boolean = false, val codigo: String = "")
     data class Remocao(val id: String, val em: Long)
 
     private const val ARQUIVO = "perfis"
@@ -44,6 +46,9 @@ object Perfis {
         // Último canal, canal anterior e buscas moravam nos ajustes: o principal continua lá.
         ativoCache = null
     }
+
+    fun estaPronto() = ::app.isInitialized
+    fun contexto(): Context = app
 
     private fun meus(): SharedPreferences = app.getSharedPreferences(ARQUIVO, Context.MODE_PRIVATE)
 
@@ -63,7 +68,8 @@ object Perfis {
                 val o = a.optJSONObject(i) ?: continue
                 val id = o.optString("id").takeIf { it.isNotBlank() } ?: continue
                 if (lista.any { it.id == id }) continue
-                lista += Perfil(id, o.optString("nome").ifBlank { "Perfil" }, o.optString("avatar"), o.optLong("em"))
+                lista += Perfil(id, o.optString("nome").ifBlank { "Perfil" }, o.optString("avatar"), o.optLong("em"),
+                    o.optBoolean("kids") && id != PRINCIPAL, o.optString("codigo"))
             }
         }
         val principal = lista.firstOrNull { it.id == PRINCIPAL } ?: Perfil(PRINCIPAL, "Principal", "gato", 0L)
@@ -72,7 +78,9 @@ object Perfis {
 
     private fun gravar(lista: List<Perfil>) {
         val a = JSONArray()
-        for (p in lista) a.put(JSONObject().put("id", p.id).put("nome", p.nome).put("avatar", p.avatar).put("em", p.em))
+        for (p in lista) a.put(JSONObject().put("id", p.id).put("nome", p.nome).put("avatar", p.avatar).put("em", p.em).apply {
+            if (p.kids) { put("kids", true); put("codigo", p.codigo) }
+        })
         meus().edit().putString("lista", a.toString()).apply()
         avisar()
     }
@@ -109,20 +117,47 @@ object Perfis {
         return "p" + (1..9).map { letras[r.nextInt(letras.length)] }.joinToString("")
     }
 
-    fun criar(nome: String, avatar: String): Perfil? {
+    // ---------- Kids ----------
+
+    fun hashCodigo(id: String, codigo: String): String =
+        java.security.MessageDigest.getInstance("SHA-256").digest("saimo-kids:$id:$codigo".toByteArray())
+            .joinToString("") { "%02x".format(it) }
+
+    /** Sair deste perfil, editá-lo ou abrir os Ajustes nele pede o código? */
+    fun pedeCodigo(p: Perfil) = p.kids && p.codigo.isNotBlank()
+
+    fun conferirCodigo(p: Perfil, codigo: String) = !pedeCodigo(p) || hashCodigo(p.id, codigo) == p.codigo
+
+    /** O perfil ativo é Kids? */
+    fun kidsAtivo(): Boolean = runCatching { ativo().kids }.getOrDefault(false)
+
+    /** `kidsCodigo`: 4 dígitos liga o Kids com esse código; "" desliga; null mantém. */
+    fun criar(nome: String, avatar: String, kidsCodigo: String? = null): Perfil? {
         val lista = todos()
         val limpo = limpar(nome)
         if (limpo.isBlank() || lista.size >= MAX) return null
-        val p = Perfil(novoId(), limpo, avatar, System.currentTimeMillis())
+        val id = novoId()
+        val kids = kidsCodigo != null && Regex("\\d{4}").matches(kidsCodigo)
+        val p = Perfil(id, limpo, avatar, System.currentTimeMillis(), kids, if (kids) hashCodigo(id, kidsCodigo!!) else "")
         gravar(lista + p)
         Connect.avisarMudancaLocal(app, 1000)
         return p
     }
 
-    fun editar(id: String, nome: String, avatar: String) {
+    fun editar(id: String, nome: String, avatar: String, kidsCodigo: String? = null) {
         val limpo = limpar(nome)
         if (limpo.isBlank()) return
-        gravar(todos().map { if (it.id == id) it.copy(nome = limpo, avatar = avatar, em = System.currentTimeMillis()) else it })
+        gravar(todos().map {
+            if (it.id != id) it else {
+                val base = it.copy(nome = limpo, avatar = avatar, em = System.currentTimeMillis())
+                when {
+                    kidsCodigo == null -> base
+                    kidsCodigo.isEmpty() -> base.copy(kids = false, codigo = "")
+                    id != PRINCIPAL && Regex("\\d{4}").matches(kidsCodigo) -> base.copy(kids = true, codigo = hashCodigo(id, kidsCodigo))
+                    else -> base
+                }
+            }
+        })
         Connect.avisarMudancaLocal(app, 1000)
     }
 
@@ -168,6 +203,8 @@ object Perfis {
         escolhidoNestaSessao = true
         if (id == idAtivo()) return false
         definirAtivo(id)
+        // Trocou de perfil: o conteúdo adulto volta a ficar trancado.
+        Unlock.bloquear()
         Favorites.load(context)
         VodFavoritos.esquecer()
         avisar()
@@ -208,9 +245,11 @@ object Perfis {
             if (remocao != null && remocao.em >= p.em) continue
             val local = lista.firstOrNull { it.id == p.id }
             lista = when {
-                local == null && lista.size < MAX && p.nome.isNotBlank() -> lista + p.copy(nome = limpar(p.nome))
+                local == null && lista.size < MAX && p.nome.isNotBlank() ->
+                    lista + p.copy(nome = limpar(p.nome), kids = p.kids && p.id != PRINCIPAL)
                 local != null && p.em > local.em && p.nome.isNotBlank() ->
-                    lista.map { if (it.id == p.id) it.copy(nome = limpar(p.nome), avatar = p.avatar, em = p.em) else it }
+                    lista.map { if (it.id == p.id) it.copy(nome = limpar(p.nome), avatar = p.avatar, em = p.em,
+                        kids = p.kids && p.id != PRINCIPAL, codigo = p.codigo) else it }
                 else -> lista
             }
         }

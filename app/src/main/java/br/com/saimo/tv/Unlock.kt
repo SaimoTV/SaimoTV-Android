@@ -11,14 +11,23 @@ package br.com.saimo.tv
  */
 object Unlock {
 
-    private const val CODE = "1010"
+    private var destrancado = false
 
-    var unlocked = false
-        private set
+    /** Destrancado e fora do perfil Kids (no Kids o conteúdo adulto nunca aparece). */
+    val unlocked: Boolean get() = destrancado && !Kids.ativo()
 
     /** Canais à vista agora: a lista publicada mais, se destrancado, os extras. */
     fun channels(): List<Channel> =
         if (unlocked) Remote.channels + Remote.restritos else Remote.channels
+
+    /** Controle parental nos Ajustes: libera com a senha (padrão 0000). */
+    fun liberar(context: android.content.Context, senha: String): Boolean {
+        if (!Parental.conferir(context, senha)) return false
+        destrancado = true
+        return true
+    }
+
+    fun bloquear() { destrancado = false }
 
     /**
      * Diz se a sequência digitada era o código, alternando o estado quando for.
@@ -27,8 +36,9 @@ object Unlock {
      * código errado se parece exatamente com nada acontecendo.
      */
     fun consume(typed: String): Boolean {
-        if (typed != CODE || Remote.restritos.isEmpty()) return false
-        unlocked = !unlocked
+        if (typed.length != 4 || Remote.restritos.isEmpty() || !Perfis.estaPronto()) return false
+        if (!Parental.conferir(Perfis.contexto(), typed)) return false
+        destrancado = !destrancado
         return true
     }
 }

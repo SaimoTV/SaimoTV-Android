@@ -49,7 +49,8 @@ object AddonsStore {
 
     fun listar(): List<AddonInstalado> = synchronized(lock) { lista.toList() }
 
-    fun ativos(): List<AddonInstalado> = synchronized(lock) { lista.filter { it.habilitado } }
+    // Perfil Kids: addons não têm classificação indicativa, então ficam desligados lá.
+    fun ativos(): List<AddonInstalado> = if (Kids.ativo()) emptyList() else synchronized(lock) { lista.filter { it.habilitado } }
 
     fun temAtivo(): Boolean = synchronized(lock) { lista.any { it.habilitado } }
 
