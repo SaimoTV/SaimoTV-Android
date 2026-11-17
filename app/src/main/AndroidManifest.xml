@@ -137,6 +137,19 @@
                 android:minWidth="720dp" android:minHeight="405dp" />
         </activity>
         <activity
+            android:name=".NovelinhasActivity"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:theme="@style/Theme.Saimo">
+            <layout android:defaultWidth="1024dp" android:defaultHeight="640dp"
+                android:minWidth="720dp" android:minHeight="405dp" />
+        </activity>
+        <activity
+            android:name=".NovelinhaPlayerActivity"
+            android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|smallestScreenSize|uiMode"
+            android:exported="false"
+            android:theme="@style/Theme.Saimo" />
+        <activity
             android:name=".BuscaActivity"
             android:exported="false"
             android:screenOrientation="landscape"

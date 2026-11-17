@@ -211,7 +211,7 @@ object Generos {
      * ficha fica sem capa — e a tela põe uma marca no lugar.
      */
     fun capa(titulo: String, serie: Boolean): String? =
-        registro(titulo, serie)?.poster?.let { baseCapa + it }
+        registro(titulo, serie)?.poster?.let { if (it.startsWith("http")) it else baseCapa + it }
 
     /** Baixa direto para o disco, sem passar o arquivo inteiro pela memória. */
     private fun baixar(context: Context): Boolean = runCatching {

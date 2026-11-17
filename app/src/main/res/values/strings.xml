@@ -36,6 +36,9 @@
     <string name="vod_faltam">faltam %1$d min de %2$d</string>
     <string name="vod_series">Séries</string>
     <string name="vod_animes">Animes</string>
+    <string name="vod_novelas">Novelas</string>
+    <string name="vod_kids">Kids</string>
+    <string name="vod_novelinhas">Novelinhas</string>
     <string name="vod_doramas">Doramas</string>
     <string name="vod_extras">+18</string>
     <string name="vod_continuar">Continue assistindo</string>
@@ -343,6 +346,16 @@
     <string name="ondemand_filmes_sobre">Lançamentos, clássicos e tudo entre eles, dublados e legendados.</string>
     <string name="ondemand_series_sobre">Temporadas completas, com o próximo episódio emendando sozinho.</string>
     <string name="ondemand_animes_sobre">Os animes do momento e os que marcaram época.</string>
+    <string name="ondemand_novelas_sobre">Novelas brasileiras, mexicanas e turcas, do primeiro ao último capítulo.</string>
+    <string name="ondemand_kids_sobre">Desenhos, animações e filmes para a família, com classificação livre.</string>
+    <string name="ondemand_novelinhas_sobre">Minisséries em pé, de um minuto por episódio, para maratonar.</string>
+    <string name="novelinhas_episodios">%1$d episódios</string>
+    <string name="novelinhas_parou">Ep. %1$d de %2$d</string>
+    <string name="novelinhas_episodio">Episódio %1$d de %2$d · %3$s</string>
+    <string name="novelinhas_dublado">Dublado</string>
+    <string name="novelinhas_legendado">Legendado</string>
+    <string name="novelinhas_dica">Cima e baixo trocam de episódio · OK pausa</string>
+    <string name="novelinhas_vazio">Nenhuma novelinha disponível agora.</string>
     <string name="ondemand_doramas_sobre">Romance, drama e suspense da Coreia, do Japão e da China.</string>
     <string name="ondemand_genero_filmes">Filmes de %1$s</string>
     <string name="ondemand_az">%1$s de A a Z</string>

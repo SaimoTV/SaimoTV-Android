@@ -59,6 +59,14 @@ open class PaginaActivity : TelaComMenu() {
         private const val COR_SERIES = 0xFF7AA2FF.toInt()
         private const val COR_ANIMES = 0xFFFFB454.toInt()
         private const val COR_DORAMAS = 0xFFFF7EB6.toInt()
+        private const val COR_NOVELAS = 0xFFC792EA.toInt()
+        private const val COR_KIDS = 0xFF7EE787.toInt()
+        private const val COR_NOVELINHAS = 0xFFFF7EB6.toInt()
+
+        /// Os cartões do topo do On Demand, na ordem em que aparecem.
+        private val CATEGORIAS = listOf(
+            GradeActivity.FILMES, GradeActivity.SERIES, GradeActivity.ANIMES, GradeActivity.DORAMAS,
+            GradeActivity.NOVELAS, GradeActivity.NOVELINHAS, GradeActivity.KIDS)
     }
 
     /// O tipo da página; o On Demand responde [TODOS].
@@ -74,10 +82,14 @@ open class PaginaActivity : TelaComMenu() {
     private var montou = false
     /// Os cartões das categorias do topo; o "Explorar" do fim usa o mesmo desenho.
     private var categoriasProntas: Inicio.Fila? = null
+    /// O tipo de cada cartão do topo (categoria vazia não ganha cartão).
+    private var tiposDosCartoes: List<String> = CATEGORIAS
 
     private val todos get() = tipo == TODOS
     private val serie get() = tipo != GradeActivity.FILMES
     private val colecao get() = tipo == GradeActivity.ANIMES || tipo == GradeActivity.DORAMAS
+    /// Novelas e Kids misturam filmes e séries.
+    private val categoria get() = GradeActivity.categoriaDe(tipo)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -93,6 +105,8 @@ open class PaginaActivity : TelaComMenu() {
             GradeActivity.SERIES -> R.string.vod_series
             GradeActivity.ANIMES -> R.string.vod_animes
             GradeActivity.DORAMAS -> R.string.vod_doramas
+            GradeActivity.NOVELAS -> R.string.vod_novelas
+            GradeActivity.KIDS -> R.string.vod_kids
             else -> R.string.vod_filmes
         })
         // O menu do topo já diz em que página se está.
@@ -117,6 +131,8 @@ open class PaginaActivity : TelaComMenu() {
 
     private suspend fun montar() {
         Generos.carregar(this)
+        CategoriasVod.carregar(this)
+        if (todos) Novelinhas.carregar(this)
         val lista = mutableListOf<Inicio.Fila>()
         val destaques = Destaques.filas(this)
 
@@ -158,14 +174,21 @@ open class PaginaActivity : TelaComMenu() {
         // de a tela abrir tiraria o foco de quem já está nela.
         val colecoes = if (todos) withContext(Dispatchers.Default) {
             mapOf(GradeActivity.ANIMES to daColecao(GradeActivity.ANIMES),
-                GradeActivity.DORAMAS to daColecao(GradeActivity.DORAMAS))
+                GradeActivity.DORAMAS to daColecao(GradeActivity.DORAMAS),
+                GradeActivity.NOVELAS to daCategoria(CategoriasVod.NOVELA),
+                GradeActivity.KIDS to daCategoria(CategoriasVod.KIDS))
         } else emptyMap()
         if (todos) lista += categorias(destaques, contagens(), colecoes).also { categoriasProntas = it }
         continuar()?.let { lista += it }
 
         // As fileiras do repositório: no On Demand todas, numa página só as do tipo dela.
         for (fila in destaques) {
-            val itens = if (todos) fila.itens else fila.itens.filter { it.tipo == letraDe(tipo) }
+            val itens = when {
+                todos -> fila.itens
+                categoria != null && !colecao -> fila.itens.filter { CategoriasVod.tem(it.titulo, it.serie, categoria!!) }
+                colecao -> fila.itens.filter { it.tipo == letraDe(tipo) || (it.tipo == 's' && CategoriasVod.tem(it.titulo, true, categoria!!)) }
+                else -> fila.itens.filter { it.tipo == letraDe(tipo) }
+            }
             if (itens.size >= 4) lista += Inicio.Fila(fila.titulo, itens.map { item ->
                 cartao(Alvo(item.titulo, item.serie, item.letra, item.ano,
                     colecao = if (item.daColecao) item.colecao else ""), item.capa, item.trailer)
@@ -190,7 +213,21 @@ open class PaginaActivity : TelaComMenu() {
     private suspend fun montarTipo(lista: MutableList<Inicio.Fila>) {
         // Lançamentos e gêneros saem do acervo inteiro, fora da linha principal.
         val candidatos = withContext(Dispatchers.Default) {
-            if (colecao) daColecao(tipo) else doAcervo(serie)
+            when {
+                colecao -> daColecao(tipo).let { c ->
+                    val nomes = c.map { Vod.normalizar(Generos.semAno(it.alvo.titulo)) }.toHashSet()
+                    c + daCategoria(categoria!!).filter { Vod.normalizar(Generos.semAno(it.alvo.titulo)) !in nomes }
+                }
+                categoria != null -> daCategoria(categoria!!)
+                else -> doAcervo(serie)
+            }
+        }
+        // Novelas e Kids: os mais populares primeiro, antes dos lançamentos.
+        if (categoria != null && !colecao) {
+            InfoDosTitulos.carregar(this)
+            candidatos.sortedByDescending { InfoDosTitulos.de(it.alvo.titulo, it.alvo.serie)?.popularidade ?: 0 }
+                .take(30).takeIf { it.size >= 4 }
+                ?.let { lista += Inicio.Fila(getString(R.string.grade_populares), it.map { c -> cartao(c.alvo, c.capa) }) }
         }
         lancamentos(candidatos)?.let { lista += Inicio.Fila(getString(R.string.pagina_lancamentos), it) }
 
@@ -221,10 +258,11 @@ open class PaginaActivity : TelaComMenu() {
 
         // O fim da página: o acervo inteiro de cada categoria, de A a Z, com o
         // mesmo cartão das categorias do topo — só a ação muda.
-        val tipos = listOf(GradeActivity.FILMES, GradeActivity.SERIES, GradeActivity.ANIMES, GradeActivity.DORAMAS)
         categoriasProntas?.let { topo ->
-            lista += Inicio.Fila(getString(R.string.pagina_explorar), topo.cartoes.zip(tipos).map { (c, t) ->
-                c.copy(titulo = getString(R.string.ondemand_az, c.titulo)) { GradeActivity.abrir(this, t) }
+            lista += Inicio.Fila(getString(R.string.pagina_explorar), topo.cartoes.zip(tiposDosCartoes).map { (c, t) ->
+                c.copy(titulo = getString(R.string.ondemand_az, c.titulo)) {
+                    if (t == GradeActivity.NOVELINHAS) NovelinhasActivity.abrir(this) else GradeActivity.abrir(this, t)
+                }
             }, Inicio.Tipo.SECAO)
         }
     }
@@ -235,8 +273,11 @@ open class PaginaActivity : TelaComMenu() {
         return mapOf(
             GradeActivity.FILMES to entradas.count { !it.serie },
             GradeActivity.SERIES to entradas.count { it.serie },
-            GradeActivity.ANIMES to Vod.colecao(this, GradeActivity.ANIMES).size,
-            GradeActivity.DORAMAS to Vod.colecao(this, GradeActivity.DORAMAS).size,
+            GradeActivity.ANIMES to comAcervo(GradeActivity.ANIMES, CategoriasVod.ANIME, entradas),
+            GradeActivity.DORAMAS to comAcervo(GradeActivity.DORAMAS, CategoriasVod.DORAMA, entradas),
+            GradeActivity.NOVELAS to entradas.count { CategoriasVod.tem(it.achado.titulo, it.serie, CategoriasVod.NOVELA) },
+            GradeActivity.KIDS to entradas.count { CategoriasVod.tem(it.achado.titulo, it.serie, CategoriasVod.KIDS) },
+            GradeActivity.NOVELINHAS to Novelinhas.lista.size,
         )
     }
 
@@ -257,11 +298,26 @@ open class PaginaActivity : TelaComMenu() {
             Triple(GradeActivity.SERIES, R.string.vod_series, R.string.ondemand_series_sobre),
             Triple(GradeActivity.ANIMES, R.string.vod_animes, R.string.ondemand_animes_sobre),
             Triple(GradeActivity.DORAMAS, R.string.vod_doramas, R.string.ondemand_doramas_sobre),
-        )
+            Triple(GradeActivity.NOVELAS, R.string.vod_novelas, R.string.ondemand_novelas_sobre),
+            Triple(GradeActivity.NOVELINHAS, R.string.vod_novelinhas, R.string.ondemand_novelinhas_sobre),
+            Triple(GradeActivity.KIDS, R.string.vod_kids, R.string.ondemand_kids_sobre),
+        ).filter { (t, _, _) ->
+            // Categoria vazia (lista sem o arquivo dela) não ganha cartão.
+            t in listOf(GradeActivity.FILMES, GradeActivity.SERIES, GradeActivity.ANIMES, GradeActivity.DORAMAS) ||
+                (contagens[t] ?: 0) > 0
+        }
+        tiposDosCartoes = itens.map { it.first }
         return Inicio.Fila(getString(R.string.ondemand_categorias), itens.map { (t, nome, sobre) ->
-            val emAlta = destaques.flatMap { it.itens }.filter { it.tipo == letraDe(t) && it.capa.isNotEmpty() }
-                .distinctBy { it.titulo }
-            val colagem = (emAlta.map { it.capa } + acervo[t].orEmpty().take(8).map { it.capa })
+            val emAlta = destaques.flatMap { it.itens }.filter { d ->
+                d.capa.isNotEmpty() && when (t) {
+                    GradeActivity.NOVELAS -> CategoriasVod.tem(d.titulo, d.serie, CategoriasVod.NOVELA)
+                    GradeActivity.KIDS -> CategoriasVod.tem(d.titulo, d.serie, CategoriasVod.KIDS)
+                    GradeActivity.NOVELINHAS -> false
+                    else -> d.tipo == letraDe(t)
+                }
+            }.distinctBy { it.titulo }
+            val colagem = (emAlta.map { it.capa } + acervo[t].orEmpty().take(8).map { it.capa } +
+                (if (t == GradeActivity.NOVELINHAS) Novelinhas.lista.take(4).map { it.capa } else emptyList()))
                 .distinct().take(4)
             val primeiro = emAlta.firstOrNull()?.let {
                 Alvo(it.titulo, it.serie, it.letra, it.ano, colecao = if (it.daColecao) it.colecao else "")
@@ -276,18 +332,24 @@ open class PaginaActivity : TelaComMenu() {
                     GradeActivity.FILMES -> R.drawable.ic_movie
                     GradeActivity.SERIES -> R.drawable.ic_episodes
                     GradeActivity.ANIMES -> R.drawable.ic_auto_awesome
+                    GradeActivity.NOVELAS -> R.drawable.ic_theater_comedy
+                    GradeActivity.KIDS -> R.drawable.ic_child_care
+                    GradeActivity.NOVELINHAS -> R.drawable.ic_celular_em_pe
                     else -> R.drawable.ic_favorite
                 },
                 cor = when (t) {
                     GradeActivity.FILMES -> COR_FILMES
                     GradeActivity.SERIES -> COR_SERIES
                     GradeActivity.ANIMES -> COR_ANIMES
+                    GradeActivity.NOVELAS -> COR_NOVELAS
+                    GradeActivity.KIDS -> COR_KIDS
+                    GradeActivity.NOVELINHAS -> COR_NOVELINHAS
                     else -> COR_DORAMAS
                 },
                 meta = quantos.orEmpty(),
                 sinopse = getString(sobre),
                 fundoDe = primeiro,
-            ) { PaginaActivity.abrir(this, t) }
+            ) { if (t == GradeActivity.NOVELINHAS) NovelinhasActivity.abrir(this) else PaginaActivity.abrir(this, t) }
         }, Inicio.Tipo.SECAO)
     }
 
@@ -325,6 +387,23 @@ open class PaginaActivity : TelaComMenu() {
             Candidato(alvo, anoDe(c.titulo, c.ano), capa, Generos.bits(c.titulo, true))
         }
 
+    /** A coleção mais os títulos do acervo da categoria que ela não tem. */
+    private suspend fun comAcervo(colecaoTipo: String, cat: String, entradas: List<Vod.Entrada>): Int {
+        val colecao = Vod.colecao(this, colecaoTipo)
+        val nomes = colecao.map { Vod.normalizar(Generos.semAno(it.titulo)) }.toHashSet()
+        return colecao.size + entradas.count {
+            CategoriasVod.tem(it.achado.titulo, it.serie, cat) && Vod.normalizar(Generos.semAno(it.achado.titulo)) !in nomes
+        }
+    }
+
+    /** Filmes e séries do acervo marcados com a categoria, com capa. */
+    private suspend fun daCategoria(cat: String): List<Candidato> =
+        Vod.entradas(this).asSequence().filter { CategoriasVod.tem(it.achado.titulo, it.serie, cat) }.mapNotNull { e ->
+            val a = e.achado
+            val capa = Generos.capa(a.titulo, a.serie) ?: return@mapNotNull null
+            Candidato(Alvo(a.titulo, a.serie, a.letra, a.ano), anoDe(a.titulo, a.ano), capa, Generos.bits(a.titulo, a.serie))
+        }.toList()
+
     private suspend fun doAcervo(serie: Boolean): List<Candidato> =
         Vod.entradas(this).asSequence().filter { it.serie == serie }.mapNotNull { e ->
             val a = e.achado
@@ -347,7 +426,9 @@ open class PaginaActivity : TelaComMenu() {
                 TODOS -> true
                 GradeActivity.FILMES -> !e.serie
                 GradeActivity.SERIES -> e.serie && e.colecao.isEmpty()
-                else -> e.colecao == tipo
+                GradeActivity.NOVELAS -> CategoriasVod.tem(e.alvo.titulo, e.serie, CategoriasVod.NOVELA)
+                GradeActivity.KIDS -> CategoriasVod.tem(e.alvo.titulo, e.serie, CategoriasVod.KIDS)
+                else -> e.colecao == tipo || (e.colecao.isEmpty() && categoria?.let { CategoriasVod.tem(e.alvo.titulo, e.serie, it) } == true)
             }
         }
         if (itens.isEmpty()) return null

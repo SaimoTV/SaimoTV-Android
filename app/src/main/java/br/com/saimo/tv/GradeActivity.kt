@@ -49,6 +49,18 @@ class GradeActivity : TelaComMenu() {
         const val SERIES = "series"
         const val ANIMES = "animes"
         const val DORAMAS = "doramas"
+        const val NOVELAS = "novelas"
+        const val KIDS = "kids"
+        const val NOVELINHAS = "novelinhas"
+
+        /** A categoria do categorias.txt de cada tipo que vem dele. */
+        fun categoriaDe(tipo: String): String? = when (tipo) {
+            ANIMES -> CategoriasVod.ANIME
+            DORAMAS -> CategoriasVod.DORAMA
+            NOVELAS -> CategoriasVod.NOVELA
+            KIDS -> CategoriasVod.KIDS
+            else -> null
+        }
         const val FAVORITOS = "favoritos"
         const val EXTRAS = "extras"
         private const val TIPO = "grade.tipo"
@@ -106,6 +118,8 @@ class GradeActivity : TelaComMenu() {
             SERIES -> R.string.vod_series
             ANIMES -> R.string.vod_animes
             DORAMAS -> R.string.vod_doramas
+            NOVELAS -> R.string.vod_novelas
+            KIDS -> R.string.vod_kids
             FAVORITOS -> R.string.vod_favoritos
             EXTRAS -> R.string.vod_extras
             else -> R.string.vod_filmes
@@ -148,6 +162,7 @@ class GradeActivity : TelaComMenu() {
     private suspend fun carregar() {
         Generos.carregar(this)
         InfoDosTitulos.carregar(this)
+        CategoriasVod.carregar(this)
         todos = withContext(Dispatchers.Default) {
             when (tipo) {
                 FILMES, SERIES -> {
@@ -168,10 +183,18 @@ class GradeActivity : TelaComMenu() {
                             }
                     } else emptyList()
                 }
-                ANIMES, DORAMAS -> Vod.colecao(this@GradeActivity, tipo).filter { Generos.capa(it.titulo, true) != null }.map { c ->
-                    Item(Alvo(c.titulo, true, "", c.ano, tipo, c.tmdbId.toIntOrNull() ?: 0),
-                        Vod.normalizar(c.titulo), anoDe(c.titulo, c.ano))
+                ANIMES, DORAMAS -> {
+                    val daColecao = Vod.colecao(this@GradeActivity, tipo).filter { Generos.capa(it.titulo, true) != null }.map { c ->
+                        Item(Alvo(c.titulo, true, "", c.ano, tipo, c.tmdbId.toIntOrNull() ?: 0),
+                            Vod.normalizar(c.titulo), anoDe(c.titulo, c.ano))
+                    }
+                    // E os do acervo marcados no categorias.txt, sem repetir o nome.
+                    val nomes = daColecao.map { Vod.normalizar(Generos.semAno(it.alvo.titulo)) }.toHashSet()
+                    daColecao + doAcervoDaCategoria(categoriaDe(tipo)!!).filter {
+                        Vod.normalizar(Generos.semAno(it.alvo.titulo)) !in nomes
+                    }
                 }
+                NOVELAS, KIDS -> doAcervoDaCategoria(categoriaDe(tipo)!!)
                 EXTRAS -> (listOf("#") + ('A'..'Z').map { it.toString() }).flatMap { letra ->
                     Vod.filmes(this@GradeActivity, letra, reservados = true).map { f ->
                         Item(Alvo(f.titulo, false, letra, ""), Vod.normalizar(f.titulo), anoDe(f.titulo, ""))
@@ -184,6 +207,16 @@ class GradeActivity : TelaComMenu() {
         }
         aplicar()
     }
+
+    /** Filmes e séries do acervo com a categoria (anime, dorama, novela, kids) e capa. */
+    private suspend fun doAcervoDaCategoria(categoria: String): List<Item> =
+        Vod.entradas(this).filter { e ->
+            val a = e.achado
+            CategoriasVod.tem(a.titulo, a.serie, categoria) && Generos.capa(a.titulo, a.serie) != null
+        }.map { e ->
+            val a = e.achado
+            Item(Alvo(a.titulo, a.serie, a.letra, a.ano), e.chave, anoDe(a.titulo, a.ano))
+        }
 
     private fun anoDe(titulo: String, ano: String) =
         ano.toIntOrNull() ?: ANO.find(titulo)?.groupValues?.get(1)?.toIntOrNull() ?: 0

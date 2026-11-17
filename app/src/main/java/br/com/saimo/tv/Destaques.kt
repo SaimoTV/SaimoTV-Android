@@ -85,7 +85,7 @@ object Destaques {
                         tipo = campos[0].firstOrNull() ?: 'f',
                         letra = campos[2],
                         ano = campos.getOrNull(3).orEmpty(),
-                        capa = if (poster.isEmpty()) "" else base + poster,
+                        capa = if (poster.isEmpty()) "" else if (poster.startsWith("http")) poster else base + poster,
                         trailer = trailer,
                     )
                 }
