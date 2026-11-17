@@ -143,14 +143,18 @@ object Resolvedor404 {
                     if (serie) "$imdbId:$temporada:$numero" else imdbId
                 } else null
 
-                val nixUrl = if (serie) {
+                val nixDub = if (serie) {
                     "$NIX_BASE/series/$NIX_USER/$NIX_PASS/$tmdbId/$temporada/$numero.mp4"
                 } else {
                     "$NIX_BASE/movie/$NIX_USER/$NIX_PASS/$tmdbId.mp4"
                 }
+                val nixLeg = "$nixDub?lang=leg"
 
-                val (crus, cadeia, nixValido) = coroutineScope {
-                    val futNix = async { if (testarNixplay(nixUrl)) nixUrl else null }
+                var nixValidoDub: String? = null
+                var nixValidoLeg: String? = null
+                val (crus, cadeia) = coroutineScope {
+                    val futNixDub = async { if (testarNixplay(nixDub)) nixDub else null }
+                    val futNixLeg = async { if (testarNixplay(nixLeg)) nixLeg else null }
                     val futsComuns = bases.map { (nome, base) ->
                         async { buscarPor(nome, base, tipo, mid, imdbMid) }
                     }
@@ -161,15 +165,23 @@ object Resolvedor404 {
                         else if (temporada > 0 && numero > 0) RedeFlix404.buscar("series", mid)
                         else emptyList()
                     }
-                    Triple(futsComuns.awaitAll().flatten(), futCadeia.await(), futNix.await())
+                    val c = futsComuns.awaitAll().flatten()
+                    val cad = futCadeia.await()
+                    nixValidoDub = futNixDub.await()
+                    nixValidoLeg = futNixLeg.await()
+                    c to cad
                 }
 
                 val vistos = mutableSetOf<String>()
                 val fontes = linkedMapOf<String, MutableList<String>>()
-                // Nixplay oficial entra em primeiro lugar absoluto (posição 0 de dub)
-                if (nixValido != null) {
-                    vistos.add(nixValido)
-                    fontes.getOrPut("dub") { mutableListOf() }.add(nixValido)
+                // Nixplay oficial entra em primeiro lugar absoluto (posição 0)
+                if (nixValidoDub != null) {
+                    vistos.add(nixValidoDub!!)
+                    fontes.getOrPut("dub") { mutableListOf() }.add(nixValidoDub!!)
+                }
+                if (nixValidoLeg != null) {
+                    vistos.add(nixValidoLeg!!)
+                    fontes.getOrPut("leg") { mutableListOf() }.add(nixValidoLeg!!)
                 }
                 for ((versao, url) in crus) {
                     if (vistos.add(url)) fontes.getOrPut(versao) { mutableListOf() }.add(url)
