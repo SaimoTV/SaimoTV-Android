@@ -234,12 +234,12 @@ class AjustesActivity : TelaComMenu() {
             Secao("Controle parental"),
             Opcao("Conteúdo adulto", { if (Unlock.unlocked) "Liberado (OK bloqueia)" else "Bloqueado" }) {
                 if (Unlock.unlocked) { Unlock.bloquear(); redesenhar(); return@Opcao }
-                val dica = if (Parental.ehPadrao(this)) "Digite a senha. A senha inicial é ${Parental.PADRAO}." else "Digite a senha."
+                val dica = "Digite a senha do controle parental."
                 CaixaDeCodigo.pedir(this, "Controle parental", dica, listOf("Senha"), { v ->
                     if (Unlock.liberar(this, v[0])) { redesenhar(); null } else "Senha errada."
                 })
             },
-            Opcao("Trocar a senha", { if (Parental.ehPadrao(this)) "Senha inicial: ${Parental.PADRAO}" else "Senha própria" }) {
+            Opcao("Trocar a senha", { if (Parental.ehPadrao(this)) "Ainda com a senha de fábrica" else "Senha própria" }) {
                 CaixaDeCodigo.pedir(this, "Controle parental", "Digite a senha atual e a nova (4 números).",
                     listOf("Senha atual", "Senha nova"), { v ->
                         when {
