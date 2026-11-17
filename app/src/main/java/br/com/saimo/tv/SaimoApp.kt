@@ -67,6 +67,7 @@ class SaimoApp : Application(), SingletonImageLoader.Factory {
                 }
             }
         })
+        Perfis.iniciar(this)
         Preferencias.iniciar(this)
         Upscaling.iniciar(this)
         Enderecos.iniciar(this)

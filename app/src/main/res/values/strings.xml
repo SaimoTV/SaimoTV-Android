@@ -253,6 +253,7 @@
     <string name="menu_ao_vivo">Ao vivo</string>
     <string name="menu_buscar">Buscar</string>
     <string name="menu_ajustes">Ajustes</string>
+    <string name="menu_perfil">Perfil</string>
     <string name="menu_apoie">Apoie</string>
     <string name="doacao_tag">Comunidade Saimo TV</string>
     <string name="doacao_titulo">Ajude a manter o Saimo TV %1$s</string>

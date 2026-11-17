@@ -20,7 +20,7 @@ import java.util.Date
 import java.util.Locale
 
 /** A aba do menu do topo que cada tela representa. */
-enum class Aba { INICIO, AO_VIVO, EVENTOS, ON_DEMAND, FAVORITOS, RADIOS, EXTRAS, BUSCAR, APOIE, AJUSTES, NENHUMA }
+enum class Aba { INICIO, AO_VIVO, EVENTOS, ON_DEMAND, FAVORITOS, RADIOS, EXTRAS, BUSCAR, APOIE, PERFIL, AJUSTES, NENHUMA }
 
 /**
  * O menu do topo, o mesmo em todas as telas.
@@ -43,10 +43,27 @@ object MenuGlobal {
             setPadding((40 * d).toInt(), (18 * d).toInt(), (40 * d).toInt(), (4 * d).toInt())
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         }
-        barra.addView(ImageView(tela).apply {
-            setImageResource(R.mipmap.ic_launcher)
-            layoutParams = LinearLayout.LayoutParams((28 * d).toInt(), (28 * d).toInt()).apply { marginEnd = (8 * d).toInt() }
-        })
+        // O perfil ativo no lugar do ícone do app: o avatar leva à troca de perfil.
+        // Mesmo espaço do ícone, para as dez abas continuarem cabendo em 960 dp.
+        val perfil = ImageView(tela).apply {
+            tag = Aba.PERFIL
+            isFocusable = true
+            isClickable = true
+            setPadding((2 * d).toInt(), (2 * d).toInt(), (2 * d).toInt(), (2 * d).toInt())
+            background = android.graphics.drawable.StateListDrawable().apply {
+                addState(intArrayOf(android.R.attr.state_focused), android.graphics.drawable.GradientDrawable().apply {
+                    cornerRadius = 9 * d; setStroke((2 * d).toInt(), android.graphics.Color.WHITE)
+                })
+            }
+            layoutParams = LinearLayout.LayoutParams((32 * d).toInt(), (32 * d).toInt()).apply { marginEnd = (6 * d).toInt() }
+            mostrarPerfil(this)
+            setOnFocusChangeListener { v, foco ->
+                v.animate().scaleX(if (foco) 1.12f else 1f).scaleY(if (foco) 1.12f else 1f).setDuration(120).start()
+                if (foco) aoFocar?.invoke()
+            }
+            setOnClickListener { tela.startActivity(Intent(tela, PerfisActivity::class.java)); tela.overridePendingTransition(0, 0) }
+        }
+        barra.addView(perfil)
         val rolagem = HorizontalScrollView(tela).apply {
             isHorizontalScrollBarEnabled = false
             clipToPadding = false
@@ -106,7 +123,8 @@ object MenuGlobal {
                     }
                     var i = abas.indexOfChild(v) + passo
                     while (i in 0 until abas.childCount && abas.getChildAt(i).visibility != View.VISIBLE) i += passo
-                    abas.getChildAt(i)?.requestFocus()
+                    // Antes da primeira aba, o avatar do perfil.
+                    if (i < 0) perfil.requestFocus() else abas.getChildAt(i)?.requestFocus()
                     true
                 }
                 setOnClickListener {
@@ -149,6 +167,16 @@ object MenuGlobal {
     fun atualizar(barra: View?) {
         val abas = barra?.findViewById<LinearLayout>(R.id.menuGlobalAbas) ?: return
         abas.findViewWithTag<View>(Aba.EXTRAS)?.visibility = if (Unlock.unlocked) View.VISIBLE else View.GONE
+        // Nome ou avatar do perfil pode ter mudado na tela de perfis.
+        (barra?.findViewWithTag<View>(Aba.PERFIL) as? ImageView)?.let { mostrarPerfil(it) }
+    }
+
+    private fun mostrarPerfil(v: ImageView) {
+        val perfil = Perfis.ativo()
+        v.contentDescription = "Perfil ${perfil.nome}. Trocar de perfil"
+        val lado = (28 * v.resources.displayMetrics.density).toInt()
+        val av = PerfisActivity.avatarDrawable(v.context, perfil, lado)
+        if (av != null) v.setImageDrawable(av) else v.setImageResource(R.mipmap.ic_launcher)
     }
 
     private fun ir(tela: Activity, aba: Aba, atual: Aba) {
@@ -166,7 +194,10 @@ object MenuGlobal {
             Aba.BUSCAR -> Intent(tela, BuscaActivity::class.java)
             Aba.AJUSTES -> Intent(tela, AjustesActivity::class.java)
             Aba.APOIE -> Intent(tela, DoacaoActivity::class.java)
+            Aba.PERFIL -> Intent(tela, PerfisActivity::class.java)
         }
+        // Perfis abre por cima da tela atual: VOLTAR devolve a ela.
+        if (aba == Aba.PERFIL && destino != null) { tela.startActivity(destino); return }
         if (destino == null) tela.startActivity(inicio)
         else tela.startActivities(arrayOf(inicio, destino))
         tela.overridePendingTransition(0, 0)

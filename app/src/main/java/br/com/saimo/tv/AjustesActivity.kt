@@ -161,6 +161,13 @@ class AjustesActivity : TelaComMenu() {
         },
 
         Secao(getString(R.string.ajustes_geral)),
+        // Perfis: cada um com os seus favoritos, onde parou e recentes.
+        Opcao("Perfis", {
+            val n = Perfis.todos().size
+            if (n == 1) "Só um perfil. Criar, editar e escolher avatares" else "${Perfis.ativo().nome} · $n perfis"
+        }) {
+            PerfisActivity.abrir(this, gerenciar = true)
+        },
         Opcao(getString(R.string.ajustes_listas), { Listas.resumo(this) }) {
             ListasDialogo.mostrar(this) { redesenhar() }
         },

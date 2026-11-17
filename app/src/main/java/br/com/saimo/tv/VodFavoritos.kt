@@ -33,7 +33,7 @@ object VodFavoritos {
 
     private fun carregar(context: Context): MutableList<Item> {
         cache?.let { return it }
-        val texto = context.getSharedPreferences(ARQUIVO, Context.MODE_PRIVATE)
+        val texto = Perfis.prefs(context, ARQUIVO)
             .getString(CHAVE, "").orEmpty()
         val out = texto.lineSequence().mapNotNull { linha ->
             val campos = linha.split("\t")
@@ -45,6 +45,9 @@ object VodFavoritos {
     }
 
     fun lista(context: Context): List<Item> = carregar(context).toList()
+
+    /** Troca de perfil: a lista guardada na memória era do anterior. */
+    fun esquecer() { cache = null }
 
     fun contem(context: Context, titulo: String, serie: Boolean, ano: String = ""): Boolean =
         carregar(context).any { it.titulo == titulo && it.serie == serie && it.ano == ano }
@@ -65,7 +68,7 @@ object VodFavoritos {
         val texto = itens.joinToString("\n") {
             "${if (it.serie) "s" else "f"}\t${it.letra}\t${it.titulo}\t${it.ano}"
         }
-        context.getSharedPreferences(ARQUIVO, Context.MODE_PRIVATE)
+        Perfis.prefs(context, ARQUIVO)
             .edit().putString(CHAVE, texto).apply()
     }
 }

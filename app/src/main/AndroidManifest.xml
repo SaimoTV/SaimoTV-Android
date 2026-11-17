@@ -202,6 +202,8 @@
         <activity android:name=".SemListaActivity" android:exported="false" />
         <activity android:name=".RadiosActivity" android:exported="false" android:launchMode="singleTop" />
         <activity android:name=".DoacaoActivity" android:exported="false" android:launchMode="singleTop" />
+        <activity android:name=".PerfisActivity" android:exported="false"
+            android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|smallestScreenSize|uiMode" />
         <activity
             android:name=".AddonsTela"
             android:exported="false"

@@ -29,8 +29,9 @@ object SincroniaConnect {
 
     private const val ARQUIVO = "progresso"
 
-    fun pacote(context: Context): JSONObject {
-        val tudo = context.getSharedPreferences(ARQUIVO, Context.MODE_PRIVATE).all
+    /** Onde parou, títulos e canais favoritos de um perfil, no formato do pacote. */
+    private fun dadosDoPerfil(context: Context, id: String): Triple<JSONArray, JSONArray, JSONArray> {
+        val tudo = Perfis.prefs(context, ARQUIVO, id).all
         val progresso = JSONArray()
         for ((chave, valor) in tudo) {
             if (!(chave.startsWith("f|") || chave.startsWith("s|")) || chave.endsWith("|d") || chave.endsWith("|t")) continue
@@ -53,7 +54,7 @@ object SincroniaConnect {
             })
         }
         val favTitulos = JSONArray()
-        for (f in VodFavoritos.lista(context)) {
+        for (f in lerFavTitulos(context, id)) {
             favTitulos.put(JSONObject().apply {
                 put("tipo", if (f.serie) "s" else "f")
                 put("titulo", f.titulo)
@@ -62,13 +63,47 @@ object SincroniaConnect {
             })
         }
         val favCanais = JSONArray()
-        Favorites.load(context)
-        for (nome in Favorites.todos()) favCanais.put(nome)
+        for (nome in lerFavCanais(context, id)) favCanais.put(nome)
+        return Triple(progresso, favTitulos, favCanais)
+    }
+
+    // Favoritos de qualquer perfil, direto do arquivo dele (o VodFavoritos e o
+    // Favorites só conhecem o perfil ativo).
+    private const val ARQ_FAV_TITULOS = "vodfav"
+    private const val ARQ_FAV_CANAIS = "saimo"
+
+    private fun lerFavTitulos(context: Context, id: String): List<VodFavoritos.Item> =
+        Perfis.prefs(context, ARQ_FAV_TITULOS, id).getString("lista", "").orEmpty().lineSequence().mapNotNull { linha ->
+            val c = linha.split("\t")
+            if (c.size < 3 || c[2].isBlank()) null else VodFavoritos.Item(c[2], c[0] == "s", c[1], c.getOrNull(3).orEmpty())
+        }.toList()
+
+    private fun gravarFavTitulos(context: Context, id: String, itens: List<VodFavoritos.Item>) {
+        val texto = itens.joinToString("\n") { "${if (it.serie) "s" else "f"}\t${it.letra}\t${it.titulo}\t${it.ano}" }
+        Perfis.prefs(context, ARQ_FAV_TITULOS, id).edit().putString("lista", texto).commit()
+    }
+
+    private fun lerFavCanais(context: Context, id: String): Set<String> =
+        Perfis.prefs(context, ARQ_FAV_CANAIS, id).getStringSet("favorites", emptySet()).orEmpty().toSet()
+
+    fun pacote(context: Context): JSONObject {
+        val (progresso, favTitulos, favCanais) = dadosDoPerfil(context, Perfis.PRINCIPAL)
+        val perfis = JSONArray()
+        for (p in Perfis.todos()) {
+            val (pr, ft, fc) = if (p.id == Perfis.PRINCIPAL) Triple(progresso, favTitulos, favCanais) else dadosDoPerfil(context, p.id)
+            perfis.put(JSONObject().put("id", p.id).put("nome", p.nome).put("avatar", p.avatar).put("em", p.em)
+                .put("progresso", pr).put("favTitulos", ft).put("favCanais", fc))
+        }
+        val removidos = JSONArray()
+        for (r in Perfis.removidos()) removidos.put(JSONObject().put("id", r.id).put("em", r.em))
         return JSONObject().apply {
             put("t", "dados")
+            // Os campos de sempre levam o perfil principal: apps sem perfis seguem funcionando.
             put("progresso", progresso)
             put("favTitulos", favTitulos)
             put("favCanais", favCanais)
+            put("perfis", perfis)
+            put("perfisRemovidos", removidos)
             put("listas", JSONObject().apply {
                 put("canais", Enderecos.canais.orEmpty())
                 put("filmes", Enderecos.filmes.orEmpty())
@@ -157,7 +192,34 @@ object SincroniaConnect {
 
     /** Junta o que veio do celular ao que a TV tem. */
     suspend fun aplicar(context: Context, json: JSONObject) {
-        val prefs = context.getSharedPreferences(ARQUIVO, Context.MODE_PRIVATE)
+        val lista = json.optJSONArray("perfis")
+        if (lista == null) {
+            // App sem perfis do outro lado: os campos de sempre são do perfil principal.
+            aplicarDoPerfil(context, Perfis.PRINCIPAL, json)
+        } else {
+            val remotos = mutableListOf<Pair<Perfis.Perfil, JSONObject>>()
+            for (i in 0 until lista.length()) {
+                val o = lista.optJSONObject(i) ?: continue
+                val id = o.optString("id").takeIf { it.isNotBlank() } ?: continue
+                remotos += Perfis.Perfil(id, o.optString("nome"), o.optString("avatar"), o.optLong("em")) to o
+            }
+            val remocoes = mutableListOf<Perfis.Remocao>()
+            json.optJSONArray("perfisRemovidos")?.let { r ->
+                for (i in 0 until r.length()) r.optJSONObject(i)?.let { remocoes += Perfis.Remocao(it.optString("id"), it.optLong("em")) }
+            }
+            val existem = Perfis.mesclar(remotos.map { it.first }, remocoes)
+            for ((p, o) in remotos) if (p.id in existem) aplicarDoPerfil(context, p.id, o)
+        }
+        // O que está na memória é do perfil ativo: relê depois de juntar.
+        Favorites.load(context)
+        VodFavoritos.esquecer()
+
+        json.optJSONObject("listas")?.let { runCatching { aplicarListas(context, it) } }
+        runCatching { aplicarAddonsEDebrid(json) }
+    }
+    /** Junta onde parou e os favoritos de um perfil vindos do outro aparelho. */
+    private fun aplicarDoPerfil(context: Context, id: String, json: JSONObject) {
+        val prefs = Perfis.prefs(context, ARQUIVO, id)
         val editor = prefs.edit()
         val lista = json.optJSONArray("progresso") ?: JSONArray()
         for (i in 0 until lista.length()) {
@@ -187,24 +249,25 @@ object SincroniaConnect {
         editor.apply()
 
         val titulos = json.optJSONArray("favTitulos") ?: JSONArray()
+        val atuais = lerFavTitulos(context, id).toMutableList()
+        var mudou = false
         for (i in 0 until titulos.length()) {
             val f = titulos.optJSONObject(i) ?: continue
             val titulo = f.optString("titulo").takeIf { it.isNotBlank() } ?: continue
             val serie = f.optString("tipo") == "s"
             val ano = f.optString("ano")
-            if (!VodFavoritos.contem(context, titulo, serie, ano)) {
-                VodFavoritos.alternar(context, VodFavoritos.Item(titulo, serie, f.optString("letra"), ano))
+            if (atuais.none { it.titulo == titulo && it.serie == serie && it.ano == ano }) {
+                atuais.add(0, VodFavoritos.Item(titulo, serie, f.optString("letra"), ano))
+                mudou = true
             }
         }
+        if (mudou) gravarFavTitulos(context, id, atuais)
 
         val canais = json.optJSONArray("favCanais") ?: JSONArray()
-        Favorites.load(context)
-        for (i in 0 until canais.length()) {
-            val nome = canais.optString(i).takeIf { it.isNotBlank() } ?: continue
-            if (!Favorites.contains(nome)) Favorites.toggle(context, nome)
-        }
-
-        json.optJSONObject("listas")?.let { runCatching { aplicarListas(context, it) } }
-        runCatching { aplicarAddonsEDebrid(json) }
+        val favs = lerFavCanais(context, id).toMutableSet()
+        val antes = favs.size
+        for (i in 0 until canais.length()) canais.optString(i).takeIf { it.isNotBlank() }?.let { favs += it }
+        if (favs.size != antes) Perfis.prefs(context, ARQ_FAV_CANAIS, id).edit().putStringSet("favorites", HashSet(favs)).commit()
     }
+
 }

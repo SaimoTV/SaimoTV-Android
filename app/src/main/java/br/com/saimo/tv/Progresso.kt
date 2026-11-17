@@ -27,7 +27,7 @@ object Progresso {
     fun chaveEpisodio(serie: String, temporada: Int, numero: Int) =
         "s|$serie|$temporada|$numero"
 
-    private fun prefs(context: Context) = context.getSharedPreferences(ARQUIVO, Context.MODE_PRIVATE)
+    private fun prefs(context: Context) = Perfis.prefs(context, ARQUIVO)
 
     /**
      * Guarda onde parou.

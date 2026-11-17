@@ -18,7 +18,10 @@ object Preferencias {
 
     fun estaPronta() = ::prefs.isInitialized
 
+    private lateinit var app: Context
+
     fun iniciar(context: Context) {
+        app = context.applicationContext
         prefs = context.applicationContext.getSharedPreferences(ARQUIVO, Context.MODE_PRIVATE)
     }
 
@@ -88,19 +91,22 @@ object Preferencias {
         set(valor) = prefs.edit().putBoolean("telemetria", valor).apply()
 
     /** Nome do último canal assistido, para voltar nele. */
+    /** Último canal, canal anterior e buscas são de cada perfil (o principal segue nos ajustes). */
+    private val doPerfil: SharedPreferences get() = Perfis.prefs(app, ARQUIVO)
+
     var ultimoCanal: String?
-        get() = prefs.getString("ultimoCanal", null)
-        set(valor) = prefs.edit().putString("ultimoCanal", valor).apply()
+        get() = doPerfil.getString("ultimoCanal", null)
+        set(valor) = doPerfil.edit().putString("ultimoCanal", valor).apply()
 
     /** Canal assistido antes do atual, para a tecla de canal anterior. */
     var canalAnterior: String?
-        get() = prefs.getString("canalAnterior", null)
-        set(valor) = prefs.edit().putString("canalAnterior", valor).apply()
+        get() = doPerfil.getString("canalAnterior", null)
+        set(valor) = doPerfil.edit().putString("canalAnterior", valor).apply()
 
     /** Buscas feitas, da mais recente para a mais antiga. */
     var historicoBusca: List<String>
-        get() = prefs.getString("historico", "").orEmpty().split("\n").filter { it.isNotBlank() }
-        set(valor) = prefs.edit().putString("historico", valor.take(12).joinToString("\n")).apply()
+        get() = doPerfil.getString("historico", "").orEmpty().split("\n").filter { it.isNotBlank() }
+        set(valor) = doPerfil.edit().putString("historico", valor.take(12).joinToString("\n")).apply()
 
     fun lembrarBusca(termo: String) {
         val limpo = termo.trim()

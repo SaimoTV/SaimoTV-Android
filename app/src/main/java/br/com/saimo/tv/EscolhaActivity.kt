@@ -116,7 +116,15 @@ class EscolhaActivity : TelaComMenu(), Connect.Listener {
         atenderLink(intent)
         // "Ir direto ao último canal", escolhido em Ajustes: esta tela fica por
         // baixo, e VOLTAR do canal cai nela.
-        if (savedInstanceState == null && !veioDeLink && Preferencias.abrirEm == "canal" &&
+        // Com 2 ou mais perfis, a partida pergunta quem está assistindo; escolhido o
+        // perfil, esta tela recomeça (com o extra) e segue para o último canal se for o caso.
+        val depoisDoPerfil = intent?.getBooleanExtra(PerfisActivity.EXTRA_DEPOIS_DO_PERFIL, false) == true
+        if (savedInstanceState == null && !veioDeLink && !depoisDoPerfil && Perfis.deveEscolherAoAbrir()) {
+            quandoAberturaAcabar {
+                if (!isFinishing) startActivity(Intent(this, PerfisActivity::class.java)
+                    .putExtra(PerfisActivity.EXTRA_OBRIGATORIA, true))
+            }
+        } else if (savedInstanceState == null && !veioDeLink && Preferencias.abrirEm == "canal" &&
             Preferencias.ultimoCanal != null) {
             quandoAberturaAcabar { if (!isFinishing) startActivity(Intent(this, MainActivity::class.java)) }
         }

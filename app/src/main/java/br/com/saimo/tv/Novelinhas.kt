@@ -52,18 +52,18 @@ object Novelinhas {
     private const val PREFS = "novelinhas"
 
     fun parada(context: Context, id: String): Pair<Int, Long>? =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(id, null)?.split(':')?.let {
+        Perfis.prefs(context, PREFS).getString(id, null)?.split(':')?.let {
             val ep = it.getOrNull(0)?.toIntOrNull() ?: return null
             ep to (it.getOrNull(1)?.toLongOrNull() ?: 0L)
         }
 
     fun guardar(context: Context, id: String, ep: Int, ms: Long) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+        Perfis.prefs(context, PREFS).edit()
             .putString(id, "$ep:$ms").putLong("$id.quando", System.currentTimeMillis()).apply()
     }
 
     fun recentes(context: Context): List<String> {
-        val p = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).all
+        val p = Perfis.prefs(context, PREFS).all
         return p.keys.filter { !it.endsWith(".quando") }
             .sortedByDescending { (p["$it.quando"] as? Long) ?: 0L }
     }

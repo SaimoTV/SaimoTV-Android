@@ -55,7 +55,7 @@ object Lembretes {
         }
     }
 
-    private fun prefs() = app.getSharedPreferences(ARQUIVO, Context.MODE_PRIVATE)
+    private fun prefs() = Perfis.prefs(app, ARQUIVO)
 
     fun todos(): List<Lembrete> = prefs().all.mapNotNull { (chave, valor) ->
         val partes = chave.split("|")

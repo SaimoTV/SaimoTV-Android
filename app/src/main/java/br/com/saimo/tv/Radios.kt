@@ -86,7 +86,7 @@ object Radios {
 
     // MARK: - Ouvidas por último
 
-    private fun prefs(context: Context) = context.getSharedPreferences("radios", Context.MODE_PRIVATE)
+    private fun prefs(context: Context) = Perfis.prefs(context, "radios")
 
     /** Nomes das rádios ouvidas, da mais recente para a mais antiga. */
     fun recentes(context: Context): List<String> =

@@ -11,7 +11,7 @@ object Favorites {
     private var cache: MutableSet<String> = mutableSetOf()
 
     fun load(context: Context) {
-        cache = context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
+        cache = Perfis.prefs(context, FILE)
             .getStringSet(KEY, emptySet())!!.toMutableSet()
     }
 
@@ -21,7 +21,7 @@ object Favorites {
 
     fun toggle(context: Context, name: String) {
         if (!cache.remove(name)) cache.add(name)
-        context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
+        Perfis.prefs(context, FILE)
             // Uma cópia, sempre: entregar o mesmo conjunto que as preferências
             // já guardam faz o Android achar que nada mudou e não gravar em
             // disco — o favorito valia até o app fechar e sumia depois.
