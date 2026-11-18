@@ -89,8 +89,11 @@
   "episodio": 5
  },
  {
-  "tipo": "canal",
-  "nome": "Telecine Action"
+  "tipo": "filme",
+  "nome": "Telecine Action",
+  "titulo": "Telecine Action",
+  "ano": "",
+  "versao": "dub"
  },
  {
   "tipo": "episodio",

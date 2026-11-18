@@ -162,10 +162,14 @@ object Classificar {
 
     fun tipo(url: String, nome: String, grupo: String, declarado: String): Tipo {
         val m = marca(nome)
+        val segs = caminho(url)
+        // Arquivo de vídeo (.mp4, .mkv, .avi...) nunca é canal, nem declarado "live".
+        segs.lastOrNull()?.let { u ->
+            if ('.' in u && u.substringAfterLast('.') in VIDEO) return m?.let { Tipo.Episodio(it) } ?: Tipo.Filme
+        }
         val d = declarado.trim().lowercase()
         if (d in TIPO_CANAL) return Tipo.Canal
         var acervo = d in TIPO_FILME || d in TIPO_SERIE
-        val segs = caminho(url)
         if (!acervo) {
             for (s in segs.dropLast(1)) {
                 if (s in SEG_FILME || s in SEG_SERIE) { acervo = true; break }
