@@ -114,6 +114,17 @@ object Conta {
         }
     }
 
+    /** Entrar com e-mail e senha (quem criou uma no celular ou no site). */
+    suspend fun entrarComSenha(email: String, senha: String) = withContext(Dispatchers.IO) {
+        val j = api("POST", "/v1/senha/entrar",
+            JSONObject().put("email", email.trim()).put("senha", senha).put("aparelho", nomeDoAparelho()), comToken = false)
+        val e = j.optJSONObject("conta")?.optString("email")?.takeIf { it.isNotBlank() && it != "null" } ?: email.trim().lowercase()
+        prefs().edit().putString("token", j.getString("token")).putString("email", e).apply()
+        ultimoEnviado = ""
+        mudar(estado.copy(email = e, erro = null))
+        escopo.launch(semDerrubar) { sincronizar(forcar = true) }
+    }
+
     suspend fun sair() = withContext(Dispatchers.IO) {
         runCatching { api("POST", "/v1/sair") }
         prefs().edit().clear().apply()

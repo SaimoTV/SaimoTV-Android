@@ -61,6 +61,69 @@ object ContaTela {
         ))
     }
 
+    /**
+     * Entrar com e-mail e senha pelo controle (teclado do Saimo). Criar ou
+     * trocar a senha fica no celular ou no site, onde chega o código do e-mail.
+     */
+    private fun mostrarSenha(activity: Activity, aoMudar: () -> Unit) {
+        val dono = activity as? LifecycleOwner ?: return
+        val d = activity.resources.displayMetrics.density
+        fun dp(v: Int) = (v * d).toInt()
+        val caixa = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(24), dp(8), dp(24), 0) }
+        fun campo(dica: String, senha: Boolean) = android.widget.EditText(activity).apply {
+            hint = dica
+            inputType = if (senha) android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+            else android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
+            textSize = 18f
+            setTextColor(Color.WHITE)
+            setHintTextColor(Color.argb(110, 255, 255, 255))
+            setBackgroundResource(R.drawable.bg_campo)
+            setPadding(dp(12), dp(10), dp(12), dp(10))
+            isSingleLine = true
+            // isSingleLine troca a máscara: a senha volta a aparecer como pontos.
+            if (senha) transformationMethod = android.text.method.PasswordTransformationMethod.getInstance()
+            TecladoSaimo.ligar(this)
+        }
+        val email = campo("Seu e-mail", false)
+        val senha = campo("Senha", true)
+        caixa.addView(TextView(activity).apply {
+            text = "Quem criou uma senha no celular ou no site entra aqui. Esqueceu ou ainda não tem? Crie no celular (Ajustes > Conta Saimo) ou no site."
+            textSize = 14f; setTextColor(Color.argb(200, 255, 255, 255))
+        })
+        for (c in listOf(email, senha)) caixa.addView(c, LinearLayout.LayoutParams(dp(420), ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(12) })
+        val aviso = TextView(activity).apply { textSize = 14f; setTextColor(Color.rgb(255, 179, 179)); setPadding(0, dp(8), 0, 0) }
+        caixa.addView(aviso)
+        val dialogo = android.app.AlertDialog.Builder(activity, android.R.style.Theme_Material_Dialog_Alert)
+            .setTitle("Entrar na Conta Saimo")
+            .setView(caixa)
+            .setPositiveButton("Entrar", null)
+            .setNegativeButton("Voltar", null)
+            .create()
+        dialogo.setOnShowListener {
+            dialogo.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener { botao ->
+                val e = email.text.toString().trim()
+                val s = senha.text.toString()
+                if (!e.contains('@') || s.isEmpty()) { aviso.text = "Digite o e-mail e a senha"; return@setOnClickListener }
+                botao.isEnabled = false
+                aviso.text = "Entrando…"
+                dono.lifecycleScope.launch(semDerrubar) {
+                    try {
+                        Conta.entrarComSenha(e, s)
+                        dialogo.dismiss()
+                        aoMudar()
+                        android.widget.Toast.makeText(activity, "Entrou na conta ${Conta.estado.email.orEmpty()}", android.widget.Toast.LENGTH_LONG).show()
+                    } catch (erro: Exception) {
+                        aviso.text = erro.message ?: "Não deu certo"
+                        senha.setText("")
+                        botao.isEnabled = true
+                    }
+                }
+            }
+            email.requestFocus()
+        }
+        dialogo.show()
+    }
+
     private fun mostrarQr(activity: Activity, aoMudar: () -> Unit) {
         val dono = activity as? LifecycleOwner ?: return
         val d = activity.resources.displayMetrics.density
@@ -89,6 +152,13 @@ object ContaTela {
         coluna.addView(codigo)
         val situacao = texto("Pedindo um código…", 15f, 0xFFA8B4C0.toInt()).apply { setPadding(0, dp(14), 0, 0) }
         coluna.addView(situacao)
+        val comSenha = android.widget.Button(activity).apply {
+            text = "Entrar com e-mail e senha"
+            isAllCaps = false
+            setOnClickListener { dialogo.dismiss(); mostrarSenha(activity, aoMudar) }
+        }
+        coluna.addView(comSenha, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            .apply { topMargin = dp(16) })
         coluna.addView(texto("Sem conta, tudo continua só nesta TV. Voltar fecha.", 13f, 0xFF6B7280.toInt()).apply { setPadding(0, dp(18), 0, 0) })
         raiz.addView(coluna, LinearLayout.LayoutParams(dp(560), ViewGroup.LayoutParams.WRAP_CONTENT))
         dialogo.setContentView(raiz, ViewGroup.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
