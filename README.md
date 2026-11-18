@@ -401,3 +401,15 @@ gerenciar perfis e abrir os Ajustes pedem um código de 4 dígitos (guardado com
 parental visível no fim dos Ajustes, discreto: senha padrão 0000, trocável; no Kids nunca libera.
 
 Aqui: `Perfis.kt` (arquivos de preferências `nome@id`), `PerfisActivity.kt` (telas), `Kids.kt` (filtro em `Vod`/`Destaques` e a senha em `Parental`), `CaixaDeCodigo.kt`; o avatar fica no lugar do ícone do menu. A sincronia (`SincroniaConnect.kt`) leva `perfis` e `perfisRemovidos`.
+
+## Brilho do app, timer e teclado
+
+- **Brilho do app** (`Camada.kt`, Ajustes > Brilho do app e Saimo Connect): véu preto por cima de
+  todas as telas, 0 a 100 (100 = normal). Em até 5% a tela está apagada e qualquer botão (menos o
+  volume) só traz o brilho de volta, em 1,5 s; a tecla não chega ao app.
+- **Timer** (`TimerDeSono.kt`): fecha o app (não desliga a TV); enquanto ligado, "Fecha em N min"
+  pequeno no canto superior direito.
+- **Teclado do Saimo** (`TecladoSaimo.kt`): os campos de texto abrem um teclado próprio, escuro e
+  igual em todo aparelho (o do sistema de algumas TV Box, como Xiaomi, não digitava letras ou abria
+  com texto branco no fundo branco). "Teclado do aparelho" continua à mão. As janelas usam sempre
+  tema escuro (`Theme_Material_Dialog_Alert`), nunca o do aparelho.
