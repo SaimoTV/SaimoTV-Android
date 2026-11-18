@@ -273,6 +273,8 @@ object Connect {
      * conectado. Junta as mudanças de alguns segundos num envio só.
      */
     fun avisarMudancaLocal(context: Context, atrasoMs: Long = 5000) {
+        // A conta Saimo (se houver) também leva a mudança.
+        Conta.agendar()
         if (clientes.none { it.autenticado }) return
         contextoSync = context.applicationContext
         handler.removeCallbacks(mandarSync)
