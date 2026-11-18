@@ -8,7 +8,7 @@ import androidx.media3.common.util.UnstableApi
  * "Desligar em 60 minutos", para quem dorme com a TV ligada.
  *
  * Um minuto antes, um aviso com a opção de ganhar mais meia hora; sem resposta,
- * o app fecha e a TV volta à tela inicial — onde o protetor de tela ou o
+ * o app fecha (a TV não desliga) e volta à tela inicial — onde o protetor de tela ou o
  * desligamento automático dela assumem.
  */
 @UnstableApi
@@ -26,15 +26,17 @@ object TimerDeSono {
         fimEm = System.currentTimeMillis() + minutos * 60_000L
         handler.postDelayed(avisar, (minutos * 60_000L - 60_000L).coerceAtLeast(0))
         handler.postDelayed(fechar, minutos * 60_000L)
+        Camada.atualizarTimer()
     }
 
     fun desligar() {
         fimEm = 0L
         handler.removeCallbacks(avisar)
         handler.removeCallbacks(fechar)
+        Camada.atualizarTimer()
     }
 
-    fun restanteMin(): Int = ((fimEm - System.currentTimeMillis()) / 60_000L).toInt().coerceAtLeast(0) + 1
+    fun restanteMin(): Int = ((fimEm - System.currentTimeMillis() + 59_999L) / 60_000L).toInt().coerceAtLeast(0)
 
     private val avisar = Runnable {
         val tela = Lembretes.atual ?: return@Runnable
@@ -44,8 +46,10 @@ object TimerDeSono {
         ))
     }
 
+    /** Fecha o app (não desliga a TV): a TV volta à tela inicial dela. */
     private val fechar = Runnable {
         fimEm = 0L
-        Lembretes.atual?.finishAffinity()
+        Camada.atualizarTimer()
+        (SaimoApp.atividadeAtual ?: Lembretes.atual)?.finishAffinity()
     }
 }

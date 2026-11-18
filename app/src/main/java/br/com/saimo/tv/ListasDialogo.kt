@@ -36,6 +36,7 @@ object ListasDialogo {
         if (activity.isFinishing || activity.isDestroyed) return null
         val dialogo = Dialog(activity, android.R.style.Theme_Translucent_NoTitleBar)
         val vista = LayoutInflater.from(activity).inflate(R.layout.dialogo_listas, null)
+        TecladoSaimo.ligarTodos(vista)
         val texto = vista.findViewById<TextView>(R.id.listasTexto)
         val campoCanais = vista.findViewById<EditText>(R.id.listasCanais)
         val campoFilmes = vista.findViewById<EditText>(R.id.listasFilmes)

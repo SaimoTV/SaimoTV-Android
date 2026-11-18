@@ -43,7 +43,7 @@ class OfertaDeAtualizacao(
             if (tela.isFinishing || tela.isDestroyed) return@launch
             ofertando = true
             val notasLimpa = versao.notas.replace(Regex("^#+\\s*", RegexOption.MULTILINE), "").trim()
-            android.app.AlertDialog.Builder(tela)
+            android.app.AlertDialog.Builder(tela, android.R.style.Theme_Material_Dialog_Alert)
                 .setTitle(tela.getString(R.string.update_titulo, versao.numero))
                 .setMessage(
                     listOf(tela.getString(R.string.update_atual, BuildConfig.VERSION_NAME),
@@ -124,7 +124,7 @@ class OfertaDeAtualizacao(
      */
     private fun pedirPermissaoDeInstalar() {
         if (tela.isFinishing || tela.isDestroyed) return
-        android.app.AlertDialog.Builder(tela)
+        android.app.AlertDialog.Builder(tela, android.R.style.Theme_Material_Dialog_Alert)
             .setTitle(R.string.update_permissao_titulo)
             .setMessage(R.string.update_permissao_texto)
             .setPositiveButton(R.string.update_permissao_abrir) { _, _ -> abrirPermissaoDeInstalar() }

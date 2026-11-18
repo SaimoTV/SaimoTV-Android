@@ -231,7 +231,8 @@
     <string name="ajustes_abrir_em">Ao abrir o app</string>
     <string name="ajustes_abrir_inicio">Mostrar a tela inicial</string>
     <string name="ajustes_abrir_canal">Ir direto ao último canal</string>
-    <string name="ajustes_timer">Desligar automaticamente</string>
+    <string name="ajustes_timer">Fechar o app automaticamente</string>
+    <string name="ajustes_brilho">Brilho do app</string>
     <string name="ajustes_timer_em">em %1$d min</string>
     <string name="ajustes_minutos">Em %1$d minutos</string>
     <string name="ajustes_sistema">Sistema</string>

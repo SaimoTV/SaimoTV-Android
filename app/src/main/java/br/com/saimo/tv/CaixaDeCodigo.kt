@@ -45,6 +45,7 @@ object CaixaDeCodigo {
                 setBackgroundResource(R.drawable.bg_campo)
                 setPadding((12 * d).toInt(), (10 * d).toInt(), (12 * d).toInt(), (10 * d).toInt())
                 imeOptions = EditorInfo.IME_ACTION_DONE
+                TecladoSaimo.ligar(this)
             }.also {
                 caixa.addView(it, LinearLayout.LayoutParams((220 * d).toInt(), LinearLayout.LayoutParams.WRAP_CONTENT)
                     .apply { topMargin = (12 * d).toInt(); gravity = Gravity.CENTER_HORIZONTAL })
@@ -52,7 +53,7 @@ object CaixaDeCodigo {
         }
         val aviso = TextView(tela).apply { textSize = 14f; setTextColor(Color.rgb(255, 179, 179)) }
         caixa.addView(aviso)
-        val dialogo = AlertDialog.Builder(tela, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+        val dialogo = AlertDialog.Builder(tela, android.R.style.Theme_Material_Dialog_Alert)
             .setTitle(titulo)
             .setView(caixa)
             .setPositiveButton("Confirmar", null)

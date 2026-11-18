@@ -819,7 +819,7 @@ class PlayerActivity : AppCompatActivity(), Connect.Listener {
         inicio: Long,
         mensagem: String = "Esta fonte usa Torrent (infoHash) e precisa de uma chave Debrid ativa (TorBox, Real-Debrid, AllDebrid ou Premiumize).",
     ) {
-        val dlg = AlertDialog.Builder(this)
+        val dlg = AlertDialog.Builder(this, androidx.appcompat.R.style.Theme_AppCompat_Dialog_Alert)
             .setTitle("Provedor Debrid necessário")
             .setMessage(mensagem)
             .setPositiveButton("Addons e Debrid") { _, _ ->
@@ -2000,7 +2000,7 @@ class PlayerActivity : AppCompatActivity(), Connect.Listener {
     override fun solicitarAprovacao(nomeDispositivo: String, aoResponder: (permitido: Boolean) -> Unit) {
         runOnUiThread {
             try {
-                val dialog = android.app.AlertDialog.Builder(this)
+                val dialog = android.app.AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
                     .setTitle(R.string.connect_aprovar_titulo)
                     .setMessage(getString(R.string.connect_aprovar_msg, nomeDispositivo))
                     .setPositiveButton(R.string.connect_permitir) { _, _ -> aoResponder(true) }

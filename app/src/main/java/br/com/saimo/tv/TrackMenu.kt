@@ -22,7 +22,7 @@ object TrackMenu {
             player.currentTracks.groups.any { it.type == tipo && it.length > 0 }
         }
         if (opcoes.isEmpty()) return
-        android.app.AlertDialog.Builder(activity)
+        android.app.AlertDialog.Builder(activity, android.R.style.Theme_Material_Dialog_Alert)
             .setTitle(R.string.faixas_titulo)
             .setItems(opcoes.map { it.first }.toTypedArray()) { _, indice ->
                 val (titulo, tipo, adaptativa) = opcoes[indice]

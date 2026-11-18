@@ -18,6 +18,9 @@ object Preferencias {
 
     fun estaPronta() = ::prefs.isInitialized
 
+    fun inteiro(chave: String, padrao: Int) = prefs.getInt(chave, padrao)
+    fun definirInteiro(chave: String, valor: Int) = prefs.edit().putInt(chave, valor).apply()
+
     private lateinit var app: Context
 
     fun iniciar(context: Context) {

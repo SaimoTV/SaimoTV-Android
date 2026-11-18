@@ -310,6 +310,7 @@ class AddonsTela : TelaComMenu() {
                 InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
             }
             isSingleLine = true
+            TecladoSaimo.ligar(this)
         }
         caixa.addView(campo)
 

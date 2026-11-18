@@ -134,6 +134,7 @@ object MinhasListasTela {
         if (activity.isFinishing || activity.isDestroyed) return
         val dialogo = Dialog(activity, android.R.style.Theme_Translucent_NoTitleBar)
         val vista = LayoutInflater.from(activity).inflate(R.layout.dialogo_minha_lista, null)
+        TecladoSaimo.ligarTodos(vista)
         val campoLink = vista.findViewById<EditText>(R.id.mlLink)
         val campoNome = vista.findViewById<EditText>(R.id.mlNome)
         val campoUsuario = vista.findViewById<EditText>(R.id.mlUsuario)

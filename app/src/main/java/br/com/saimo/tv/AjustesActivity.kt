@@ -194,6 +194,13 @@ class AjustesActivity : TelaComMenu() {
                 Preferencias.abrirEm = it
             }
         },
+        Opcao(getString(R.string.ajustes_brilho), { "${Camada.brilho}%" }) {
+            // Em 0 a tela fica preta; qualquer botão traz o brilho de volta devagar.
+            escolher(getString(R.string.ajustes_brilho), (100 downTo 0 step 10).toList(), Camada.brilho,
+                { if (it == 0) "0% (tela apagada: qualquer botão volta)" else if (it == 100) "100% (normal)" else "$it%" }) {
+                Camada.brilho = it
+            }
+        },
         Opcao(getString(R.string.ajustes_timer), {
             if (TimerDeSono.ativo) getString(R.string.ajustes_timer_em, TimerDeSono.restanteMin())
             else getString(R.string.ajustes_desligado)

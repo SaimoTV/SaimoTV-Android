@@ -410,8 +410,9 @@ object Connect {
         }
         estado.put("timer", if (TimerDeSono.ativo) TimerDeSono.restanteMin() else 0)
         estado.put("versaoConnect", 2)
+        estado.put("brilho", Camada.brilho)
         // O que esta TV sabe fazer pelo Connect 2: o celular só mostra o que estiver aqui.
-        estado.put("recursos", JSONArray(listOf("fontes", "faixas", "favorito", "anterior", "timer", "telas")))
+        estado.put("recursos", JSONArray(listOf("fontes", "faixas", "favorito", "anterior", "timer", "telas", "brilho")))
         val audioArr = JSONArray()
         for (status in phoneAudioMap.values) {
             audioArr.put(JSONObject().apply {
@@ -458,7 +459,7 @@ object Connect {
             val act = SaimoApp.atividadeAtual
             if (act != null && !act.isFinishing && !act.isDestroyed) {
                 try {
-                    val dialog = AlertDialog.Builder(act)
+                    val dialog = AlertDialog.Builder(act, androidx.appcompat.R.style.Theme_AppCompat_Dialog_Alert)
                         .setTitle(R.string.connect_aprovar_titulo)
                         .setMessage(act.getString(R.string.connect_aprovar_msg, nomeDispositivo))
                         .setPositiveButton(R.string.connect_permitir) { _, _ -> aoResponder(true) }
@@ -1022,6 +1023,10 @@ object Connect {
                             if (min > 0) TimerDeSono.ligar(min) else TimerDeSono.desligar()
                             notificarMudancaDeEstado()
                         }
+                    }
+                    "brilho" -> {
+                        val valor = json.optInt("valor", 100)
+                        handler.post { Camada.brilho = valor }
                     }
                     "abrir" -> {
                         // Leva a TV direto a uma tela, como as abas do menu do topo.

@@ -58,7 +58,28 @@ class PerfisActivity : AppCompatActivity() {
         modo = if (intent.getStringExtra(EXTRA_MODO) == "gerenciar") Modo.GERENCIAR else Modo.ESCOLHER
         raiz = FrameLayout(this).apply { setBackgroundResource(R.drawable.bg_escolha) }
         setContentView(raiz)
-        desenhar()
+    }
+
+    /** Perfis que chegam pelo Saimo Connect (ou mudam em outra tela) aparecem na hora. */
+    private val aoMudarPerfis: () -> Unit = {
+        runOnUiThread { if (!isFinishing && !isDestroyed && modo != Modo.EDITAR) desenhar() }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        Perfis.assinar(aoMudarPerfis)
+        if (modo != Modo.EDITAR) desenhar()
+    }
+
+    override fun onPause() {
+        Perfis.cancelar(aoMudarPerfis)
+        super.onPause()
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (modo != Modo.EDITAR) desenhar()
     }
 
     @Deprecated("Deprecated in Java")
@@ -235,6 +256,7 @@ class PerfisActivity : AppCompatActivity() {
                 override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
                 override fun afterTextChanged(s: android.text.Editable?) { nomeDigitado = s?.toString() }
             })
+            TecladoSaimo.ligar(this)
         }
         topo.addView(campo, LinearLayout.LayoutParams(dp(380), ViewGroup.LayoutParams.WRAP_CONTENT))
         coluna.addView(topo)
@@ -306,6 +328,7 @@ class PerfisActivity : AppCompatActivity() {
                     setHintTextColor(Color.argb(120, 255, 255, 255))
                     setBackgroundResource(R.drawable.bg_campo)
                     setPadding(dp(12), dp(8), dp(12), dp(8))
+                    TecladoSaimo.ligar(this)
                 }
                 cod1 = campoCodigo("Código").also { linha.addView(it, LinearLayout.LayoutParams(dp(170), ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginEnd = dp(10) }) }
                 cod2 = campoCodigo("Repita o código").also { linha.addView(it, LinearLayout.LayoutParams(dp(170), ViewGroup.LayoutParams.WRAP_CONTENT)) }

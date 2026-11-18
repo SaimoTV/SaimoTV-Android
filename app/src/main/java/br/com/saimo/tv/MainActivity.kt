@@ -2129,7 +2129,7 @@ override fun onVideoSizeChanged(videoSize: VideoSize) {
     private fun mostrarDialogoConectar() {
         val ip = Connect.obterIpLocal()
         val pin = Connect.pinAtual
-        android.app.AlertDialog.Builder(this)
+        android.app.AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
             .setTitle(R.string.connect_titulo)
             .setMessage(getString(R.string.connect_ip_pin, ip, pin))
             .setPositiveButton("OK", null)
@@ -2517,7 +2517,7 @@ override fun onVideoSizeChanged(videoSize: VideoSize) {
     override fun solicitarAprovacao(nomeDispositivo: String, aoResponder: (permitido: Boolean) -> Unit) {
         runOnUiThread {
             try {
-                val dialog = android.app.AlertDialog.Builder(this)
+                val dialog = android.app.AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
                     .setTitle(R.string.connect_aprovar_titulo)
                     .setMessage(getString(R.string.connect_aprovar_msg, nomeDispositivo))
                     .setPositiveButton(R.string.connect_permitir) { _, _ -> aoResponder(true) }
