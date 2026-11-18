@@ -117,9 +117,25 @@ open class PaginaActivity : TelaComMenu() {
 
     override fun onRestart() {
         super.onRestart()
-        // O "continuar" deste tipo muda depois de assistir.
-        lifecycleScope.launch(semDerrubar) { montar() }
+        // Voltar de um filme não refaz a página (era o que a deixava lenta e
+        // perdia o lugar): só o "continuar assistindo", que muda depois de assistir.
+        val atual = ultimaLista
+        if (atual == null) { lifecycleScope.launch(semDerrubar) { montar() }; return }
+        val titulo = getString(R.string.vod_continuar)
+        val novo = continuar()
+        val i = atual.indexOfFirst { it.titulo == titulo }
+        val lista = atual.toMutableList()
+        when {
+            i >= 0 && novo != null -> lista[i] = novo
+            i >= 0 -> lista.removeAt(i)
+            novo != null -> lista.add(if (todos) minOf(1, lista.size) else 0, novo)
+            else -> return
+        }
+        mostrar(lista)
     }
+
+    /** O que está na tela, para a volta não refazer tudo. */
+    private var ultimaLista: List<Inicio.Fila>? = null
 
     private data class Candidato(val alvo: Alvo, val ano: Int, val capa: String, val generos: Int)
 
@@ -355,6 +371,7 @@ open class PaginaActivity : TelaComMenu() {
 
     private fun mostrar(lista: List<Inicio.Fila>) {
         if (isFinishing || isDestroyed) return
+        ultimaLista = lista.toList()
         adaptador.trocar(lista.toList())
         if (!montou) {
             montou = true

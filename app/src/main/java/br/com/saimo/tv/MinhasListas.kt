@@ -112,6 +112,9 @@ object MinhasListas {
         if (::app.isInitialized) { Vod.liberar(); Generos.limpar() }
     }
 
+    private fun novoMontador() =
+        AcervoLista.Montador(File(app.cacheDir, "acervo-" + java.util.UUID.randomUUID().toString().take(8)))
+
     /** A pasta do acervo (filmes e séries) da lista, no formato Saimo. */
     fun pastaDoAcervo(id: String) = File(pasta(), "$id-acervo")
 
@@ -218,14 +221,14 @@ object MinhasListas {
         // Conta com usuário e senha (Xtream): canais pela API do servidor; filmes
         // e séries pelo M3U completo da conta.
         Xtream.deLink(url)?.let { conta ->
-            val acervo = AcervoLista.Montador()
+            val acervo = novoMontador()
             val canais = runCatching { Xtream.canais(conta) }
             runCatching { abrirLink(Xtream.linkM3u(conta.base, conta.usuario, conta.senha)) { LeitorM3u.lerFluxo(it, acervo) } }
             canais.getOrNull()?.let { return@withContext Lido(it, acervo) }
             if (!acervo.vazio) return@withContext Lido(emptyList(), acervo)
             throw canais.exceptionOrNull() ?: Erro("Não consegui falar com o servidor")
         }
-        val acervo = AcervoLista.Montador()
+        val acervo = novoMontador()
         val canais = try {
             abrirLink(url) { leitor -> validar(leitor, acervo) }
         } catch (e: Erro) {
@@ -260,7 +263,7 @@ object MinhasListas {
     suspend fun lerArquivo(arquivo: File): Lido = lerFluxo { arquivo.inputStream() }
 
     private suspend fun lerFluxo(abrir: () -> java.io.InputStream): Lido = withContext(Dispatchers.IO) {
-        val acervo = AcervoLista.Montador()
+        val acervo = novoMontador()
         val canais = try {
             abrir().limitado().bufferedReader(Charsets.UTF_8).use { validar(it, acervo) }
         } catch (e: Erro) {
