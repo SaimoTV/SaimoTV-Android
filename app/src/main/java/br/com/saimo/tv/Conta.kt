@@ -114,9 +114,9 @@ object Conta {
         }
     }
 
-    /** Entrar com e-mail e senha (quem criou uma no celular ou no site). */
-    suspend fun entrarComSenha(email: String, senha: String) = withContext(Dispatchers.IO) {
-        val j = api("POST", "/v1/senha/entrar",
+    /** Entrar com e-mail e senha; `criar` cria a conta (o e-mail não é verificado). */
+    suspend fun entrarComSenha(email: String, senha: String, criar: Boolean = false) = withContext(Dispatchers.IO) {
+        val j = api("POST", if (criar) "/v1/senha/cadastrar" else "/v1/senha/entrar",
             JSONObject().put("email", email.trim()).put("senha", senha).put("aparelho", nomeDoAparelho()), comToken = false)
         val e = j.optJSONObject("conta")?.optString("email")?.takeIf { it.isNotBlank() && it != "null" } ?: email.trim().lowercase()
         prefs().edit().putString("token", j.getString("token")).putString("email", e).apply()

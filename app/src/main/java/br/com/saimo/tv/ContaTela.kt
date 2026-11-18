@@ -87,7 +87,7 @@ object ContaTela {
         val email = campo("Seu e-mail", false)
         val senha = campo("Senha", true)
         caixa.addView(TextView(activity).apply {
-            text = "Quem criou uma senha no celular ou no site entra aqui. Esqueceu ou ainda não tem? Crie no celular (Ajustes > Conta Saimo) ou no site."
+            text = "Entre com o e-mail e a senha da sua conta, ou crie uma conta agora (senha com 8 ou mais)."
             textSize = 14f; setTextColor(Color.argb(200, 255, 255, 255))
         })
         for (c in listOf(email, senha)) caixa.addView(c, LinearLayout.LayoutParams(dp(420), ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(12) })
@@ -97,18 +97,20 @@ object ContaTela {
             .setTitle("Entrar na Conta Saimo")
             .setView(caixa)
             .setPositiveButton("Entrar", null)
+            .setNeutralButton("Criar conta", null)
             .setNegativeButton("Voltar", null)
             .create()
         dialogo.setOnShowListener {
-            dialogo.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener { botao ->
+            fun enviar(botao: android.view.View, criar: Boolean) {
                 val e = email.text.toString().trim()
                 val s = senha.text.toString()
-                if (!e.contains('@') || s.isEmpty()) { aviso.text = "Digite o e-mail e a senha"; return@setOnClickListener }
+                if (!e.contains('@') || s.isEmpty()) { aviso.text = "Digite o e-mail e a senha"; return }
+                if (criar && s.length < 8) { aviso.text = "A senha precisa ter 8 ou mais caracteres"; return }
                 botao.isEnabled = false
-                aviso.text = "Entrando…"
+                aviso.text = if (criar) "Criando a conta…" else "Entrando…"
                 dono.lifecycleScope.launch(semDerrubar) {
                     try {
-                        Conta.entrarComSenha(e, s)
+                        Conta.entrarComSenha(e, s, criar)
                         dialogo.dismiss()
                         aoMudar()
                         android.widget.Toast.makeText(activity, "Entrou na conta ${Conta.estado.email.orEmpty()}", android.widget.Toast.LENGTH_LONG).show()
@@ -119,6 +121,8 @@ object ContaTela {
                     }
                 }
             }
+            dialogo.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener { enviar(it, false) }
+            dialogo.getButton(android.app.AlertDialog.BUTTON_NEUTRAL).setOnClickListener { enviar(it, true) }
             email.requestFocus()
         }
         dialogo.show()
