@@ -1,0 +1,51 @@
+#EXTM3U
+#EXTINF:-1 tvg-id="globo.br" tvg-logo="https://img.exemplo.com/globo.png" group-title="Abertos",Globo HD
+https://tv.exemplo.com/live/usuario/senha/101.ts
+#EXTINF:-1 tvg-id="hbo" group-title="♯ HBO",HBO 4K
+http://tv.exemplo.com:8080/usuario/senha/260.ts
+#EXTINF:-1 group-title="▶ Direct Animes",Naruto S01E05
+http://tv.exemplo.com:8080/usuario/senha/261
+#EXTINF:-1 group-title="Filmes 24h",Canal de Filmes (2020)
+https://tv.exemplo.com/filmes24h/index.m3u8
+#EXTINF:-1 tvg-name="Território Hostil (2025) (2025)" group-title="# 4k",Território Hostil (2025) (2025)
+http://tv.exemplo.com:8080/movie/usuario/senha/2001.mp4
+#EXTINF:-1 group-title="# Legendados",Vítimas do Dia [L]
+http://tv.exemplo.com:8080/movie/usuario/senha/2002.mkv
+#EXTINF:-1 group-title="# Drama",Vítimas do Dia
+http://tv.exemplo.com:8080/movie/usuario/senha/2003.mp4
+#EXTINF:-1 group-title="# Outras Produtoras",3 Palavrinhas S01E01
+http://tv.exemplo.com:8080/series/usuario/senha/3001.mp4
+#EXTINF:-1 group-title="# Outras Produtoras",3 Palavrinhas S01E02
+http://tv.exemplo.com:8080/series/usuario/senha/3002.mp4
+#EXTINF:-1 group-title="# Legendados",Bogus Skill Fruitmaster [L] S01E12
+http://tv.exemplo.com:8080/series/usuario/senha/3003.mkv
+#EXTINF:-1 group-title="# Globo Play",Avenida Brasil (2012) S01E100
+http://tv.exemplo.com:8080/series/usuario/senha/3004.mp4
+#EXTINF:-1 tvg-type="movie" group-title="Lançamentos",Duna: Parte Dois (2024)
+https://cdn.exemplo.com/stream/duna2/master.m3u8
+#EXTINF:-1 tvg-type="series" group-title="Séries",The Office - T02E05 - O Halloween
+https://cdn.exemplo.com/stream/office/s2e5.m3u8
+#EXTINF:-1 type="live" group-title="Filmes",Telecine Action
+https://cdn.exemplo.com/stream/tc-action.mp4
+#EXTINF:-1 group-title="Séries | Netflix",Breaking Bad S05 E14
+https://cdn.exemplo.com/bb/s05e14.m3u8
+#EXTINF:-1 group-title="Séries",Friends 1x02
+https://cdn.exemplo.com/friends/102.m3u8
+#EXTINF:-1 group-title="Novelas",Pantanal - Capítulo 40
+https://cdn.exemplo.com/pantanal/40.mp4
+#EXTINF:-1 group-title="Séries",Dark Temporada 2 Episódio 5
+https://cdn.exemplo.com/dark/t2e5.mkv
+#EXTINF:-1 group-title="Filmes",O Poderoso Chefão (1972) [Legendado]
+https://cdn.exemplo.com/stream/chefao.m3u8
+#EXTINF:-1 group-title="Filmes",Clube da Luta
+https://cdn.exemplo.com/stream/clube.m3u8
+#EXTINF:-1 group-title="Esportes",Premiere 1080x720 S1
+https://cdn.exemplo.com/premiere.m3u8
+#EXTINF:-1 group-title="Animes",One Piece - Ep. 1071
+https://cdn.exemplo.com/onepiece/1071.mp4
+#EXTINF:-1,Filme Solto.avi
+https://cdn.exemplo.com/videos/filme-solto.avi?token=abc
+#EXTINF:-1 group-title="VOD",Os Simpsons s10.e03
+http://cdn.exemplo.com/vod/simpsons/s10e03.mp4
+#EXTINF:-1 group-title="Canais",Rádio Exemplo FM
+https://cdn.exemplo.com/radio/exemplo.mp3

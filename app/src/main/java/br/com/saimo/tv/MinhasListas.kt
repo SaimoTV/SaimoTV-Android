@@ -10,7 +10,6 @@ import kotlinx.coroutines.withContext
 import okhttp3.Request
 import org.json.JSONArray
 import org.json.JSONObject
-import java.io.ByteArrayOutputStream
 import java.io.File
 import java.util.concurrent.TimeUnit
 
@@ -27,7 +26,8 @@ object MinhasListas {
 
     const val CATEGORIA = "Minhas listas"
     const val MAXIMO_LISTAS = 10
-    private const val MAXIMO_BYTES = 30 * 1024 * 1024
+    /** Listas com filmes e séries passam fácil de 70 MB (300 mil itens): lidas em fluxo. */
+    private const val MAXIMO_BYTES = 250L * 1024 * 1024
     private const val RENOVAR_APOS_MS = 12 * 3_600_000L
     private const val UA_VLC = "VLC/3.0.20 LibVLC/3.0.20"
 
@@ -41,7 +41,22 @@ object MinhasListas {
         val atualizadaEm: Long,
         val ativa: Boolean,
         val canais: Int,
+        /** Filmes e séries que foram para Filmes e séries (docs/listas-m3u.md). */
+        val filmes: Int = 0,
+        val series: Int = 0,
     )
+
+    /** O que uma lista trouxe: os canais e o acervo de filmes e séries. */
+    class Lido(val canais: List<LeitorM3u.CanalM3u>, val acervo: AcervoLista.Montador) {
+        /** "120 canais, 3.400 filmes e 900 séries". */
+        fun descricao(): String {
+            val partes = listOfNotNull(
+                "${canais.size} canais".takeIf { canais.isNotEmpty() || acervo.vazio },
+                "${acervo.totalFilmes} filmes".takeIf { acervo.totalFilmes > 0 },
+                "${acervo.totalSeries} séries".takeIf { acervo.totalSeries > 0 })
+            return if (partes.size <= 1) partes.joinToString() else partes.dropLast(1).joinToString(", ") + " e " + partes.last()
+        }
+    }
 
     private class Lida(val lista: Lista, val canais: List<Channel>, val restritos: List<Channel>)
 
@@ -58,8 +73,17 @@ object MinhasListas {
         app = context.applicationContext
         listas = lerIndice()
         if (listas.isNotEmpty()) {
-            escopo.launch(semDerrubar) { garantir(); atualizarVencidas() }
-        }
+            escopo.launch(semDerrubar) {
+                garantir()
+                // Listas guardadas antes dos filmes e séries (docs/listas-m3u.md):
+                // os filmes e episódios estão como canais. Baixa de novo uma vez.
+                if (prefs().getInt("acervo", 0) < 1) {
+                    for (l in listas.toList()) if (l.link != null) runCatching { atualizar(l.id) }
+                    prefs().edit().putInt("acervo", 1).apply()
+                }
+                atualizarVencidas()
+            }
+        } else if (::app.isInitialized) prefs().edit().putInt("acervo", 1).apply()
     }
 
     fun todas(): List<Lista> = listas
@@ -71,7 +95,8 @@ object MinhasListas {
         (0 until a.length()).map {
             val o = a.getJSONObject(it)
             Lista(o.getString("id"), o.getString("nome"), if (o.isNull("link")) null else o.getString("link"),
-                o.optLong("atualizadaEm"), o.optBoolean("ativa", true), o.optInt("canais"))
+                o.optLong("atualizadaEm"), o.optBoolean("ativa", true), o.optInt("canais"),
+                o.optInt("filmes"), o.optInt("series"))
         }
     }.getOrDefault(emptyList())
 
@@ -80,9 +105,21 @@ object MinhasListas {
         val a = JSONArray()
         for (l in novas) a.put(JSONObject().put("id", l.id).put("nome", l.nome)
             .put("link", l.link ?: JSONObject.NULL).put("atualizadaEm", l.atualizadaEm)
-            .put("ativa", l.ativa).put("canais", l.canais))
+            .put("ativa", l.ativa).put("canais", l.canais).put("filmes", l.filmes).put("series", l.series))
         prefs().edit().putString("indice", a.toString()).apply()
         lidas = null
+        // Os filmes e séries das listas entram no acervo: o Vod lê de novo.
+        if (::app.isInitialized) { Vod.liberar(); Generos.limpar() }
+    }
+
+    /** A pasta do acervo (filmes e séries) da lista, no formato Saimo. */
+    fun pastaDoAcervo(id: String) = File(pasta(), "$id-acervo")
+
+    /** As pastas de acervo das listas ativas que têm filmes ou séries. */
+    fun acervosAtivos(): List<File> {
+        if (!::app.isInitialized) return emptyList()
+        return listas.filter { it.ativa && it.filmes + it.series > 0 }.map { pastaDoAcervo(it.id) }
+            .filter { File(it, "indice.txt").exists() }
     }
 
     private fun gravarCanais(id: String, canais: List<LeitorM3u.CanalM3u>) {
@@ -172,63 +209,66 @@ object MinhasListas {
         return "Lista $n"
     }
 
-    /** Baixa e lê. Erros em português, sem o endereço. */
-    suspend fun baixar(link: String): List<LeitorM3u.CanalM3u> = withContext(Dispatchers.IO) {
+    /** Baixa e lê, em fluxo. Erros em português, sem o endereço. */
+    suspend fun baixar(link: String): Lido = withContext(Dispatchers.IO) {
         val url = link.trim()
         if (!url.startsWith("http://", true) && !url.startsWith("https://", true)) {
             throw Erro("O link precisa começar com http:// ou https://")
         }
-        // Conta com usuário e senha (Xtream): lê pela API do servidor.
-        Xtream.deLink(url)?.let { return@withContext Xtream.canais(it) }
-        val texto = try {
-            val cliente = Playback.client.newBuilder().callTimeout(30, TimeUnit.SECONDS).followRedirects(true).build()
-            val pedido = Request.Builder().url(url).header("User-Agent", UA_VLC).build()
-            cliente.newCall(pedido).execute().use { r ->
-                if (!r.isSuccessful) throw Erro("Não consegui baixar essa lista")
-                val saida = ByteArrayOutputStream()
-                val fonte = r.body.byteStream()
-                val buf = ByteArray(64 * 1024)
-                while (true) {
-                    val n = fonte.read(buf)
-                    if (n < 0) break
-                    saida.write(buf, 0, n)
-                    if (saida.size() > MAXIMO_BYTES) throw Erro("Não consegui baixar essa lista")
-                }
-                String(saida.toByteArray(), Charsets.UTF_8)
-            }
+        // Conta com usuário e senha (Xtream): canais pela API do servidor; filmes
+        // e séries pelo M3U completo da conta.
+        Xtream.deLink(url)?.let { conta ->
+            val acervo = AcervoLista.Montador()
+            val canais = runCatching { Xtream.canais(conta) }
+            runCatching { abrirLink(Xtream.linkM3u(conta.base, conta.usuario, conta.senha)) { LeitorM3u.lerFluxo(it, acervo) } }
+            canais.getOrNull()?.let { return@withContext Lido(it, acervo) }
+            if (!acervo.vazio) return@withContext Lido(emptyList(), acervo)
+            throw canais.exceptionOrNull() ?: Erro("Não consegui falar com o servidor")
+        }
+        val acervo = AcervoLista.Montador()
+        val canais = try {
+            abrirLink(url) { leitor -> validar(leitor, acervo) }
         } catch (e: Erro) {
             throw e
         } catch (e: Exception) {
             throw Erro("Não consegui baixar essa lista")
         }
-        validar(texto)
+        conferir(Lido(canais, acervo))
+    }
+
+    private fun <T> abrirLink(url: String, ler: (java.io.BufferedReader) -> T): T {
+        val cliente = Playback.client.newBuilder().callTimeout(300, TimeUnit.SECONDS).followRedirects(true).build()
+        val pedido = Request.Builder().url(url).header("User-Agent", UA_VLC).build()
+        return cliente.newCall(pedido).execute().use { r ->
+            if (!r.isSuccessful) throw Erro("Não consegui baixar essa lista")
+            r.body.byteStream().limitado().bufferedReader(Charsets.UTF_8).use(ler)
+        }
+    }
+
+    /** Corta o que passar de [MAXIMO_BYTES]. */
+    private fun java.io.InputStream.limitado(): java.io.InputStream = object : java.io.FilterInputStream(this) {
+        private var lidos = 0L
+        override fun read(): Int = super.read().also { if (it >= 0) contar(1) }
+        override fun read(b: ByteArray, off: Int, len: Int): Int = super.read(b, off, len).also { if (it > 0) contar(it.toLong()) }
+        private fun contar(n: Long) { lidos += n; if (lidos > MAXIMO_BYTES) throw Erro("Essa lista é grande demais") }
     }
 
     /** Lê o arquivo escolhido no seletor do sistema (ContentResolver). */
-    suspend fun lerArquivo(uri: Uri): List<LeitorM3u.CanalM3u> = lerFluxo { app.contentResolver.openInputStream(uri)!! }
+    suspend fun lerArquivo(uri: Uri): Lido = lerFluxo { app.contentResolver.openInputStream(uri)!! }
 
     /** Lê um arquivo da pasta Download/armazenamento (alternativa sem seletor do sistema). */
-    suspend fun lerArquivo(arquivo: File): List<LeitorM3u.CanalM3u> = lerFluxo { arquivo.inputStream() }
+    suspend fun lerArquivo(arquivo: File): Lido = lerFluxo { arquivo.inputStream() }
 
-    private suspend fun lerFluxo(abrir: () -> java.io.InputStream): List<LeitorM3u.CanalM3u> = withContext(Dispatchers.IO) {
-        val texto = try {
-            abrir().use { entrada ->
-                val saida = ByteArrayOutputStream()
-                val buf = ByteArray(64 * 1024)
-                while (true) {
-                    val n = entrada.read(buf)
-                    if (n < 0) break
-                    saida.write(buf, 0, n)
-                    if (saida.size() > MAXIMO_BYTES) throw Erro("Esse arquivo é grande demais")
-                }
-                String(saida.toByteArray(), Charsets.UTF_8)
-            }
+    private suspend fun lerFluxo(abrir: () -> java.io.InputStream): Lido = withContext(Dispatchers.IO) {
+        val acervo = AcervoLista.Montador()
+        val canais = try {
+            abrir().limitado().bufferedReader(Charsets.UTF_8).use { validar(it, acervo) }
         } catch (e: Erro) {
             throw e
         } catch (e: Exception) {
             throw Erro("Não consegui abrir esse arquivo")
         }
-        validar(texto)
+        conferir(Lido(canais, acervo))
     }
 
     /** Arquivos .m3u/.m3u8/.m3 de Download, Documents e da raiz do armazenamento (sem recursão). */
@@ -244,32 +284,47 @@ object MinhasListas {
             .sortedBy { it.name.lowercase() }
     }
 
-    private fun validar(texto: String): List<LeitorM3u.CanalM3u> {
-        val inicio = texto.trimStart('﻿').trimStart()
-        if (!inicio.startsWith("#EXTM3U", true) && !texto.contains("#EXTINF")) {
+    /** Confere o começo (64 KB) e lê o resto em fluxo. */
+    private fun validar(leitor: java.io.BufferedReader, acervo: AcervoLista.Montador): List<LeitorM3u.CanalM3u> {
+        leitor.mark(64 * 1024)
+        val buf = CharArray(64 * 1024)
+        var n = 0
+        while (n < buf.size) { val r = leitor.read(buf, n, buf.size - n); if (r < 0) break; n += r }
+        val inicio = String(buf, 0, n)
+        if (!inicio.trimStart('\ufeff').trimStart().startsWith("#EXTM3U", true) && !inicio.contains("#EXTINF")) {
             throw Erro("Isso não parece uma lista .m3u")
         }
-        val canais = LeitorM3u.ler(texto)
-        if (canais.isEmpty()) throw Erro("Essa lista não tem canais")
-        return canais
+        leitor.reset()
+        return LeitorM3u.lerFluxo(leitor, acervo)
+    }
+
+    private fun conferir(lido: Lido): Lido {
+        if (lido.canais.isEmpty() && lido.acervo.vazio) throw Erro("Essa lista não tem canais, filmes nem séries")
+        return lido
     }
 
     /** Guarda uma lista nova. Lança [Erro] se já há [MAXIMO_LISTAS]. */
     @Synchronized
-    fun adicionar(nome: String?, link: String?, canais: List<LeitorM3u.CanalM3u>) {
+    fun adicionar(nome: String?, link: String?, lido: Lido) {
         if (listas.size >= MAXIMO_LISTAS) throw Erro("Você já tem $MAXIMO_LISTAS listas. Remova uma para adicionar outra.")
         val id = novoId()
-        gravarCanais(id, canais)
-        gravarIndice(listas + Lista(id, nomeLivre(nome), link?.trim(), System.currentTimeMillis(), true, canais.size))
+        gravarCanais(id, lido.canais)
+        val r = lido.acervo.gravar(pastaDoAcervo(id))
+        gravarIndice(listas + Lista(id, nomeLivre(nome), link?.trim(), System.currentTimeMillis(), true, lido.canais.size,
+            r.filmes, r.series))
         Connect.avisarMudancaLocal(app, 1000)
     }
 
     /** Troca os canais de uma lista que já existe (atualização). */
     @Synchronized
-    fun substituir(id: String, canais: List<LeitorM3u.CanalM3u>) {
+    fun substituir(id: String, lido: Lido) {
         if (listas.none { it.id == id }) return
-        gravarCanais(id, canais)
-        gravarIndice(listas.map { if (it.id == id) it.copy(atualizadaEm = System.currentTimeMillis(), canais = canais.size) else it })
+        gravarCanais(id, lido.canais)
+        val r = lido.acervo.gravar(pastaDoAcervo(id))
+        gravarIndice(listas.map {
+            if (it.id == id) it.copy(atualizadaEm = System.currentTimeMillis(), canais = lido.canais.size,
+                filmes = r.filmes, series = r.series) else it
+        })
     }
 
     @Synchronized
@@ -278,13 +333,18 @@ object MinhasListas {
     @Synchronized
     fun remover(id: String) {
         File(pasta(), "$id.json").delete()
+        pastaDoAcervo(id).deleteRecursively()
         gravarIndice(listas.filterNot { it.id == id })
     }
 
     /** Atualiza pelo link; devolve a mensagem de erro, ou nulo se deu certo. */
     suspend fun atualizar(id: String): String? {
         val link = listas.firstOrNull { it.id == id }?.link ?: return "Essa lista veio de um arquivo: escolha o arquivo de novo"
-        return try { substituir(id, baixar(link)); null } catch (e: Erro) { e.message }
+        return try {
+            val lido = baixar(link)
+            withContext(Dispatchers.IO) { substituir(id, lido) }
+            null
+        } catch (e: Erro) { e.message }
     }
 
     /** Ao abrir o app: listas com link e mais de 12 h. Falha é silenciosa (fica a versão guardada). */

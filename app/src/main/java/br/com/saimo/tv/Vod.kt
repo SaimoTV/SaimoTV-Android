@@ -15,7 +15,11 @@ import java.io.File
 /// uma com as duas fontes.
 data class Filme(val titulo: String, val fontes: Map<String, List<String>>)
 
-data class Serie(val titulo: String, val ano: String, val pedaco: Int, val episodios: Int) {
+data class Serie(
+    val titulo: String, val ano: String, val pedaco: Int, val episodios: Int,
+    /** De que acervo veio: nulo o publicado; o caminho da pasta, o de uma lista do usuário. */
+    val origem: String? = null,
+) {
     val nomeCompleto: String
         get() = if (ano.isBlank()) titulo else "$titulo ($ano)"
 }
@@ -68,7 +72,35 @@ object Vod {
      */
     private const val VERSAO_CACHE = "4"
 
+    /** Há filmes e séries: o acervo publicado ou o de alguma lista do usuário. */
+    fun temAcervo(): Boolean = BASE != null || MinhasListas.acervosAtivos().isNotEmpty()
+
+    /** O publicado (nulo) e o de cada lista ativa. */
+    private fun origens(): List<File?> = listOf<File?>(null) + MinhasListas.acervosAtivos()
+
+    /** Um arquivo de acervo: o publicado (nulo) ou o de uma lista. */
+    private suspend fun arquivoDe(context: Context, origem: File?, nome: String, fresco: Boolean = false): String? =
+        if (origem == null) { if (BASE == null) null else arquivo(context, nome, fresco) }
+        else withContext(Dispatchers.IO) { File(origem, AcervoLista.noDisco(nome)).takeIf { it.exists() }?.readText() }
+
     suspend fun indice(context: Context): List<Gaveta> {
+        val gavetas = (if (BASE != null) indicePublicado(context) else emptyList()).toMutableList()
+        for (pasta in MinhasListas.acervosAtivos()) {
+            val texto = withContext(Dispatchers.IO) { runCatching { File(pasta, "indice.txt").readText() }.getOrNull() } ?: continue
+            for (linha in texto.lineSequence()) {
+                val campos = linha.split("\t")
+                if (campos.size < 3 || campos[0].isBlank()) continue
+                val f = campos[1].toIntOrNull() ?: 0
+                val se = campos[2].toIntOrNull() ?: 0
+                val i = gavetas.indexOfFirst { it.letra == campos[0] }
+                if (i >= 0) gavetas[i] = gavetas[i].copy(filmes = gavetas[i].filmes + f, series = gavetas[i].series + se)
+                else gavetas += Gaveta(campos[0], f, se, 0)
+            }
+        }
+        return gavetas.sortedBy { if (it.letra == "#") "" else it.letra }
+    }
+
+    private suspend fun indicePublicado(context: Context): List<Gaveta> {
         conferirVersao(context)
         val texto = indiceAtual(context) ?: return emptyList()
         val out = mutableListOf<Gaveta>()
@@ -137,9 +169,31 @@ object Vod {
         // Os links vêm como "servidor:id"; sem a lista de servidores, montar
         // devolve vazio e o arquivo inteiro sumia (acontecia no Extras, que
         // abre sem passar pelo índice).
-        if (bases.isEmpty()) indice(context)
-        val texto = arquivo(context, "$prefixo-${gaveta(letra)}.txt", fresco) ?: return emptyList()
-        return texto.lineSequence().mapNotNull { linha ->
+        if (bases.isEmpty() && BASE != null) indicePublicado(context)
+        val nome = "$prefixo-${gaveta(letra)}.txt"
+        // Os reservados são só do acervo publicado.
+        val saida = ArrayList<Filme>()
+        var varias = false
+        for (origem in if (reservados) listOf(null) else origens()) {
+            val texto = arquivoDe(context, origem, nome, fresco) ?: continue
+            val lidos = filmesDoTexto(texto)
+            if (saida.isEmpty()) { saida += lidos; continue }
+            varias = true
+            // O mesmo título em outro acervo: as fontes dele viram reserva.
+            for (f in lidos) {
+                val i = saida.indexOfFirst { it.titulo == f.titulo }
+                if (i < 0) { saida += f; continue }
+                val juntas = saida[i].fontes.toMutableMap()
+                for ((v, urls) in f.fontes) juntas[v] = (juntas[v].orEmpty() + urls).distinct()
+                saida[i] = saida[i].copy(fontes = juntas)
+            }
+        }
+        if (varias) saida.sortBy { normalizar(it.titulo) }
+        return saida
+    }
+
+    private fun filmesDoTexto(texto: String): List<Filme> =
+        texto.lineSequence().mapNotNull { linha ->
             val campos = linha.split("\t")
             if (campos.size < 2 || campos[0].isBlank()) return@mapNotNull null
             val fontes = VodFormato.fontes(campos.drop(1), bases)
@@ -147,16 +201,19 @@ object Vod {
                 .filterValues { it.isNotEmpty() }
             if (fontes.isEmpty()) null else Filme(campos[0], fontes)
         }.toList()
-    }
 
     private suspend fun seriesBruto(context: Context, letra: String, fresco: Boolean = false): List<Serie> {
-        val texto = arquivo(context, "series-${gaveta(letra)}.txt", fresco) ?: return emptyList()
-        return texto.lineSequence().mapNotNull { linha ->
-            val campos = linha.split("\t")
-            if (campos.size < 4 || campos[0].isBlank()) return@mapNotNull null
-            Serie(campos[0], campos[1], campos[2].toIntOrNull() ?: 0,
-                campos[3].toIntOrNull() ?: 0)
-        }.toList()
+        val saida = ArrayList<Serie>()
+        for (origem in origens()) {
+            val texto = arquivoDe(context, origem, "series-${gaveta(letra)}.txt", fresco) ?: continue
+            texto.lineSequence().mapNotNullTo(saida) { linha ->
+                val campos = linha.split("\t")
+                if (campos.size < 4 || campos[0].isBlank()) return@mapNotNullTo null
+                Serie(campos[0], campos[1], campos[2].toIntOrNull() ?: 0,
+                    campos[3].toIntOrNull() ?: 0, origem?.path)
+            }
+        }
+        return saida
     }
 
     data class Achado(
@@ -235,9 +292,10 @@ object Vod {
 
     suspend fun entradas(context: Context): List<Entrada> = withContext(Dispatchers.IO) {
         indice?.let { return@withContext it }
-        val texto = arquivo(context, "busca.txt") ?: return@withContext emptyList()
+        val textos = origens().mapNotNull { arquivoDe(context, it, "busca.txt") }
+        if (textos.isEmpty()) return@withContext emptyList()
         val out = ArrayList<Entrada>(50_000)
-        for (linha in texto.lineSequence()) {
+        for (linha in textos.asSequence().flatMap { it.lineSequence() }) {
             val campos = linha.split("\t")
             if (campos.size < 3 || campos[0].isBlank()) continue
             // Linha sem nome, só com ano (" (2024)"), é defeito do gerador.
@@ -333,7 +391,7 @@ object Vod {
     /** Episódios de uma série. Baixa só o pedaço em que ela está. */
     suspend fun episodios(context: Context, letra: String, serie: Serie): List<Episodio> {
         val nome = "series-${gaveta(letra)}-${serie.pedaco}.txt"
-        val texto = arquivo(context, nome) ?: return emptyList()
+        val texto = arquivoDe(context, serie.origem?.let(::File), nome) ?: return emptyList()
         val out = mutableListOf<Episodio>()
         var dentro = false
         for (linha in texto.lineSequence()) {

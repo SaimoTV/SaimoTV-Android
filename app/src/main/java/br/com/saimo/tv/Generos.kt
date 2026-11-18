@@ -134,10 +134,18 @@ object Generos {
             if (prontos) return@withContext
         }
         if (baixar(context)) runCatching { local.bufferedReader().useLines { montar(it) } }
+        // Sem acervo publicado: só as capas e grupos das listas do usuário.
+        if (!prontos && MinhasListas.acervosAtivos().isNotEmpty()) runCatching { montar(emptySequence()) }
     }
 
+    /** As capas e grupos das listas do usuário (AcervoLista), sem a linha `capa:`. */
+    private fun linhasDasListas(): Sequence<String> = MinhasListas.acervosAtivos().asSequence().flatMap { pasta ->
+        runCatching { java.io.File(pasta, ARQUIVO).readLines() }.getOrDefault(emptyList()).asSequence()
+    }.filterNot { it.startsWith("capa:") }
+
     /** Monta os mapas a partir do conteúdo do arquivo, linha a linha. */
-    private fun montar(linhas: Sequence<String>) {
+    private fun montar(publicadas: Sequence<String>) {
+        val linhas = publicadas + linhasDasListas()
         val novosFilmes = HashMap<String, Registro>(40_000)
         val novasSeries = HashMap<String, Registro>(12_000)
         val novoPorId = HashMap<Int, Registro>(50_000)

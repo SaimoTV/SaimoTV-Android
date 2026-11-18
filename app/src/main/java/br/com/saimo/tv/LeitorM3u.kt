@@ -93,6 +93,8 @@ object LeitorM3u {
     private class Pendente(
         val exibido: String, val tvgName: String?, val tvgId: String?,
         val logo: String?, val grupo: String?,
+        /** tvg-type / type / media-type: o tipo que a lista declara. */
+        val declarado: String?,
     )
 
     private class Montagem(
@@ -100,25 +102,32 @@ object LeitorM3u {
     )
 
     fun ler(textoOriginal: String): List<CanalM3u> = try {
-        lerSemRede(textoOriginal)
+        lerLinhas(textoOriginal.replace("\r\n", "\n").replace('\r', '\n').splitToSequence('\n'), null)
     } catch (e: Exception) {
         emptyList()
     }
 
-    private fun lerSemRede(textoOriginal: String): List<CanalM3u> {
-        val texto = textoOriginal.trimStart('﻿')
+    /**
+     * Lê em fluxo (listas de 300 mil itens não cabem inteiras na memória de uma
+     * TV Box): devolve os canais; filmes e episódios (docs/listas-m3u.md) vão
+     * para [acervo].
+     */
+    fun lerFluxo(leitor: java.io.BufferedReader, acervo: AcervoLista.Montador): List<CanalM3u> =
+        lerLinhas(leitor.lineSequence(), acervo)
+
+    private fun lerLinhas(linhas: Sequence<String>, acervo: AcervoLista.Montador?): List<CanalM3u> {
         val canais = ArrayList<Montagem>()
         val indice = HashMap<String, Montagem>()
         var pend: Pendente? = null
         var opts = HashMap<String, String>()
-        val linhas = texto.replace("\r\n", "\n").replace('\r', '\n').split('\n')
         for (bruta in linhas) {
-            val linha = bruta.trim()
+            val linha = bruta.trim().trimStart('\ufeff')
             if (linha.isEmpty()) continue
             if (linha.startsWith("#EXTM3U", ignoreCase = true)) continue
             if (linha.startsWith("#EXTINF")) {
                 pend = Pendente(nomeExibido(linha), atributo(linha, "tvg-name"), atributo(linha, "tvg-id"),
-                    atributo(linha, "tvg-logo"), atributo(linha, "group-title"))
+                    atributo(linha, "tvg-logo"), atributo(linha, "group-title"),
+                    atributo(linha, "tvg-type") ?: atributo(linha, "type") ?: atributo(linha, "media-type"))
                 opts = HashMap()
                 continue
             }
@@ -162,7 +171,7 @@ object LeitorM3u {
                 }
             }
             if (!HTTP.matcher(url).matches()) { pend = null; opts = HashMap(); continue }
-            val p = pend ?: Pendente("", null, null, null, null)
+            val p = pend ?: Pendente("", null, null, null, null, null)
             val bruto = p.exibido.ifEmpty { p.tvgName.orEmpty() }.ifEmpty { p.tvgId.orEmpty() }
             var (nome, qual) = if (bruto.isNotEmpty()) tirarTags(bruto) else "" to null
             if (nome.isEmpty()) nome = "Canal ${canais.size + 1}"
@@ -170,6 +179,13 @@ object LeitorM3u {
             if (grupo != null && ';' in grupo) grupo = grupo.substringBefore(';').trim()
             grupo = grupo?.ifEmpty { null }
             val logo = p.logo?.takeIf { it.isNotEmpty() && HTTP.matcher(it).matches() }
+            val tipo = Classificar.tipo(url, bruto, grupo.orEmpty(), p.declarado.orEmpty())
+            if (tipo != Classificar.Tipo.Canal) {
+                // Filme ou episódio: vai para o acervo da lista (adulto não entra).
+                if (acervo != null && !ehRestrito(grupo, bruto)) acervo.adicionar(tipo, bruto, grupo.orEmpty(), url, logo)
+                pend = null; opts = HashMap()
+                continue
+            }
             var keyId: String? = null
             var key: String? = null
             val licChave = opts["lic_chave"].orEmpty()

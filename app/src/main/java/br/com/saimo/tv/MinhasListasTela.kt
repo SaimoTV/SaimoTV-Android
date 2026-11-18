@@ -17,6 +17,8 @@ import android.widget.Toast
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 
 /**
  * Ajustes > Minhas listas. Um painel lateral (o mesmo das outras escolhas) com
@@ -88,8 +90,10 @@ object MinhasListasTela {
         dono.lifecycleScope.launch(semDerrubar) {
             val msg = try {
                 val canais = MinhasListas.lerArquivo(uri)
-                if (alvo != null) MinhasListas.substituir(alvo, canais) else MinhasListas.adicionar(null, null, canais)
-                "Lista com ${canais.size} canais"
+                withContext(Dispatchers.IO) {
+                    if (alvo != null) MinhasListas.substituir(alvo, canais) else MinhasListas.adicionar(null, null, canais)
+                }
+                "Lista com ${canais.descricao()}"
             } catch (e: MinhasListas.Erro) {
                 e.message ?: "Não consegui abrir esse arquivo"
             }
@@ -113,8 +117,10 @@ object MinhasListasTela {
                 dono.lifecycleScope.launch(semDerrubar) {
                     val msg = try {
                         val canais = MinhasListas.lerArquivo(f)
-                        if (alvo != null) MinhasListas.substituir(alvo, canais) else MinhasListas.adicionar(null, null, canais)
-                        "Lista com ${canais.size} canais"
+                        withContext(Dispatchers.IO) {
+                            if (alvo != null) MinhasListas.substituir(alvo, canais) else MinhasListas.adicionar(null, null, canais)
+                        }
+                        "Lista com ${canais.descricao()}"
                     } catch (e: MinhasListas.Erro) {
                         e.message ?: "Não consegui abrir esse arquivo"
                     }
@@ -201,8 +207,9 @@ object MinhasListasTela {
             dono.lifecycleScope.launch(semDerrubar) {
                 try {
                     val canais = MinhasListas.baixar(link)
-                    MinhasListas.adicionar(campoNome.text.toString(), link, canais)
-                    Toast.makeText(activity, "Lista adicionada: ${canais.size} canais", Toast.LENGTH_LONG).show()
+                    val nome = campoNome.text.toString()
+                    withContext(Dispatchers.IO) { MinhasListas.adicionar(nome, link, canais) }
+                    Toast.makeText(activity, "Lista adicionada: ${canais.descricao()}", Toast.LENGTH_LONG).show()
                     dialogo.dismiss()
                     if (!activity.isFinishing && !activity.isDestroyed) {
                         if (voltarAoPainel) reabrir(activity, escolherArquivo, aoMudar) else aoMudar()

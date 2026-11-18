@@ -1,0 +1,175 @@
+[
+ {
+  "tipo": "canal",
+  "nome": "Globo HD"
+ },
+ {
+  "tipo": "canal",
+  "nome": "HBO 4K"
+ },
+ {
+  "tipo": "canal",
+  "nome": "Naruto S01E05"
+ },
+ {
+  "tipo": "canal",
+  "nome": "Canal de Filmes (2020)"
+ },
+ {
+  "tipo": "filme",
+  "nome": "Território Hostil (2025) (2025)",
+  "titulo": "Território Hostil (2025)",
+  "ano": "2025",
+  "versao": "dub"
+ },
+ {
+  "tipo": "filme",
+  "nome": "Vítimas do Dia [L]",
+  "titulo": "Vítimas do Dia",
+  "ano": "",
+  "versao": "leg"
+ },
+ {
+  "tipo": "filme",
+  "nome": "Vítimas do Dia",
+  "titulo": "Vítimas do Dia",
+  "ano": "",
+  "versao": "dub"
+ },
+ {
+  "tipo": "episodio",
+  "nome": "3 Palavrinhas S01E01",
+  "titulo": "3 Palavrinhas",
+  "ano": "",
+  "versao": "dub",
+  "temporada": 1,
+  "episodio": 1
+ },
+ {
+  "tipo": "episodio",
+  "nome": "3 Palavrinhas S01E02",
+  "titulo": "3 Palavrinhas",
+  "ano": "",
+  "versao": "dub",
+  "temporada": 1,
+  "episodio": 2
+ },
+ {
+  "tipo": "episodio",
+  "nome": "Bogus Skill Fruitmaster [L] S01E12",
+  "titulo": "Bogus Skill Fruitmaster",
+  "ano": "",
+  "versao": "leg",
+  "temporada": 1,
+  "episodio": 12
+ },
+ {
+  "tipo": "episodio",
+  "nome": "Avenida Brasil (2012) S01E100",
+  "titulo": "Avenida Brasil",
+  "ano": "2012",
+  "versao": "dub",
+  "temporada": 1,
+  "episodio": 100
+ },
+ {
+  "tipo": "filme",
+  "nome": "Duna: Parte Dois (2024)",
+  "titulo": "Duna: Parte Dois (2024)",
+  "ano": "2024",
+  "versao": "dub"
+ },
+ {
+  "tipo": "episodio",
+  "nome": "The Office - T02E05 - O Halloween",
+  "titulo": "The Office",
+  "ano": "",
+  "versao": "dub",
+  "temporada": 2,
+  "episodio": 5
+ },
+ {
+  "tipo": "canal",
+  "nome": "Telecine Action"
+ },
+ {
+  "tipo": "episodio",
+  "nome": "Breaking Bad S05 E14",
+  "titulo": "Breaking Bad",
+  "ano": "",
+  "versao": "dub",
+  "temporada": 5,
+  "episodio": 14
+ },
+ {
+  "tipo": "episodio",
+  "nome": "Friends 1x02",
+  "titulo": "Friends",
+  "ano": "",
+  "versao": "dub",
+  "temporada": 1,
+  "episodio": 2
+ },
+ {
+  "tipo": "episodio",
+  "nome": "Pantanal - Capítulo 40",
+  "titulo": "Pantanal",
+  "ano": "",
+  "versao": "dub",
+  "temporada": 1,
+  "episodio": 40
+ },
+ {
+  "tipo": "episodio",
+  "nome": "Dark Temporada 2 Episódio 5",
+  "titulo": "Dark",
+  "ano": "",
+  "versao": "dub",
+  "temporada": 2,
+  "episodio": 5
+ },
+ {
+  "tipo": "filme",
+  "nome": "O Poderoso Chefão (1972) [Legendado]",
+  "titulo": "O Poderoso Chefão (1972)",
+  "ano": "1972",
+  "versao": "leg"
+ },
+ {
+  "tipo": "canal",
+  "nome": "Clube da Luta"
+ },
+ {
+  "tipo": "canal",
+  "nome": "Premiere 1080x720 S1"
+ },
+ {
+  "tipo": "episodio",
+  "nome": "One Piece - Ep. 1071",
+  "titulo": "One Piece",
+  "ano": "",
+  "versao": "dub",
+  "temporada": 1,
+  "episodio": 1071
+ },
+ {
+  "tipo": "filme",
+  "nome": "Filme Solto.avi",
+  "titulo": "Filme Solto",
+  "ano": "",
+  "versao": "dub"
+ },
+ {
+  "tipo": "episodio",
+  "nome": "Os Simpsons s10.e03",
+  "titulo": "Os Simpsons",
+  "ano": "",
+  "versao": "dub",
+  "temporada": 10,
+  "episodio": 3
+ },
+ {
+  "tipo": "canal",
+  "nome": "Rádio Exemplo FM"
+ }
+]
