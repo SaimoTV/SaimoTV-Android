@@ -90,43 +90,44 @@ object Classificar {
         return String(n, j, k - j).toInt() to k
     }
 
-    /** A marca de episódio do nome (S01E02, 1x02, Temporada 2 Episódio 5, Ep 12…). */
+    /**
+     * A marca de episódio do nome, em três passadas: S01E02/T01E02 no nome
+     * inteiro; "Temporada N ... Episódio M"; 1x02 (nunca no começo do nome:
+     * "4x4 Sob Medida" e "4x100" são títulos). A fraca (Ep 12) só sem forte.
+     */
     fun marca(nome: String): Marca? {
         val n = dobrar(nome)
-        var fraca: Marca? = null
+        for (i in n.indices) {
+            val c = n[i]
+            if ((c != 's' && c != 't') || !inicioDePalavra(n, i)) continue
+            val (t, j0) = lerDigitos(n, i + 1, 3) ?: continue
+            var j = pular(n, j0, setOf(' ', '.', '_', '-'))
+            if (j < n.size && (n[j] == 'e' || (c == 's' && n[j] == 'x'))) {
+                j++
+                if (j < n.size && n[j] == 'p') j++
+                j = pular(n, j, setOf(' ', '.'))
+                lerDigitos(n, j, 4)?.let { (e, _) -> return Marca(t, e, i, true) }
+            }
+        }
         for (i in n.indices) {
             if (!inicioDePalavra(n, i)) continue
-            val c = n[i]
-            if (c == 's' || c == 't') {
-                lerDigitos(n, i + 1, 3)?.let { (t, j0) ->
-                    var j = pular(n, j0, setOf(' ', '.', '_', '-'))
-                    if (j < n.size && (n[j] == 'e' || (c == 's' && n[j] == 'x'))) {
-                        j++
-                        if (j < n.size && n[j] == 'p') j++
-                        j = pular(n, j, setOf(' ', '.'))
-                        lerDigitos(n, j, 4)?.let { (e, _) -> return Marca(t, e, i, true) }
-                    }
-                }
-            }
-            if (digito(c)) {
-                lerDigitosAte(n, i, 2, 'x')?.let { (t, j) ->
-                    lerDigitos(n, j + 1, 3)?.let { (e, k) ->
-                        if (k == n.size || !alnum(n[k])) return Marca(t, e, i, true)
-                    }
-                }
-            }
             for (p in listOf("temporada", "season")) {
                 if (!comeca(n, i, p)) continue
-                val j0 = pular(n, i + p.length, setOf(' '))
-                lerDigitos(n, j0, 3)?.let { (t, j) ->
-                    for (k in j until minOf(j + 13, n.size)) {
-                        if (inicioDePalavra(n, k)) palavraDeEpisodio(n, k)?.let { e -> return Marca(t, e, i, true) }
-                    }
+                val (t, j) = lerDigitos(n, pular(n, i + p.length, setOf(' ')), 3) ?: continue
+                for (k in j until minOf(j + 13, n.size)) {
+                    if (inicioDePalavra(n, k)) palavraDeEpisodio(n, k)?.let { e -> return Marca(t, e, i, true) }
                 }
             }
-            if (fraca == null) palavraDeEpisodio(n, i)?.let { fraca = Marca(1, it, i, false) }
         }
-        return fraca
+        for (i in 1 until n.size) {
+            if (!digito(n[i]) || !inicioDePalavra(n, i)) continue
+            val (t, j) = lerDigitosAte(n, i, 2, 'x') ?: continue
+            lerDigitos(n, j + 1, 3)?.let { (e, k) -> if (k == n.size || !alnum(n[k])) return Marca(t, e, i, true) }
+        }
+        for (i in n.indices) {
+            if (inicioDePalavra(n, i)) palavraDeEpisodio(n, i)?.let { return Marca(1, it, i, false) }
+        }
+        return null
     }
 
     private fun caminho(url: String): List<String> {

@@ -49,3 +49,7 @@ https://cdn.exemplo.com/videos/filme-solto.avi?token=abc
 http://cdn.exemplo.com/vod/simpsons/s10e03.mp4
 #EXTINF:-1 group-title="Canais",Rádio Exemplo FM
 https://cdn.exemplo.com/radio/exemplo.mp3
+#EXTINF:-1 group-title="# Discovery Plus",4X4 Sob Medida S01E01
+http://tv.exemplo.com:8080/series/usuario/senha/3005.mp4
+#EXTINF:-1 group-title="# Drama",4x100: Correndo por um Sonho
+http://tv.exemplo.com:8080/movie/usuario/senha/2004.mp4

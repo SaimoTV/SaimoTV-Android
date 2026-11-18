@@ -171,5 +171,21 @@
  {
   "tipo": "canal",
   "nome": "Rádio Exemplo FM"
+ },
+ {
+  "tipo": "episodio",
+  "nome": "4X4 Sob Medida S01E01",
+  "titulo": "4X4 Sob Medida",
+  "ano": "",
+  "versao": "dub",
+  "temporada": 1,
+  "episodio": 1
+ },
+ {
+  "tipo": "filme",
+  "nome": "4x100: Correndo por um Sonho",
+  "titulo": "4x100: Correndo por um Sonho",
+  "ano": "",
+  "versao": "dub"
  }
 ]

@@ -413,3 +413,11 @@ Aqui: `Perfis.kt` (arquivos de preferências `nome@id`), `PerfisActivity.kt` (te
   igual em todo aparelho (o do sistema de algumas TV Box, como Xiaomi, não digitava letras ou abria
   com texto branco no fundo branco). "Teclado do aparelho" continua à mão. As janelas usam sempre
   tema escuro (`Theme_Material_Dialog_Alert`), nunca o do aparelho.
+
+## Filmes e séries das listas
+
+`Classificar.kt` + `AcervoLista.kt`: cada item de uma lista M3U/Xtream vira canal, filme ou
+episódio (`SaimoPlayer/docs/listas-m3u.md`, teste `ClassificarTest`). A lista é lida em fluxo e os
+itens vão para arquivos temporários por letra; o acervo é montado uma letra por vez (uma lista de
+300 mil itens cabe numa TV Box de 1 GB) em `minhas_listas/<id>-acervo/`, e o `Vod` lê junto do
+publicado. O On Demand não refaz a página ao voltar de um filme (só o "continuar assistindo").
