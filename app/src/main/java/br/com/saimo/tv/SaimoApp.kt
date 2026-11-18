@@ -53,6 +53,7 @@ class SaimoApp : Application(), SingletonImageLoader.Factory {
             override fun onActivityResumed(activity: android.app.Activity) {
                 atividadeAtual = activity
                 Camada.instalar(activity)
+                Conta.aoVoltar()
                 Connect.notificarMudancaDeEstado()
             }
             override fun onActivityPaused(activity: android.app.Activity) {
@@ -73,6 +74,7 @@ class SaimoApp : Application(), SingletonImageLoader.Factory {
         Upscaling.iniciar(this)
         Enderecos.iniciar(this)
         MinhasListas.iniciar(this)
+        Conta.iniciar(this)
         AddonsStore.iniciar(this)
         DebridStore.iniciar(this)
         IdResolver.iniciar(this)

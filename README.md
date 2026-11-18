@@ -421,3 +421,7 @@ episódio (`SaimoPlayer/docs/listas-m3u.md`, teste `ClassificarTest`). A lista �
 itens vão para arquivos temporários por letra; o acervo é montado uma letra por vez (uma lista de
 300 mil itens cabe numa TV Box de 1 GB) em `minhas_listas/<id>-acervo/`, e o `Vod` lê junto do
 publicado. O On Demand não refaz a página ao voltar de um filme (só o "continuar assistindo").
+
+## Conta Saimo (opcional)
+
+Ajustes > Conta Saimo mostra o QR e o código (o celular ou o site logado aprova) e tem "Entrar com e-mail e senha" pelo teclado do Saimo. Logado: sincronizar agora e sair. Código em `Conta.kt` e `ContaTela.kt`; sincroniza pelo pacote do Connect (`SincroniaConnect`). O build de depuração usa o servidor local (`http://10.0.2.2:8787`); o de produção, `https://conta.saimo-tv.com.br`. Contrato: SaimoPlayer/docs/conta.md. Sem conta, nada muda.

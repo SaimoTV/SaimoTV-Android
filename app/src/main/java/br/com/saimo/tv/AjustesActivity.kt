@@ -211,6 +211,9 @@ class AjustesActivity : TelaComMenu() {
             }
         },
 
+        // Conta Saimo (opcional): entrar pelo celular (QR) e sincronizar pela internet. No Kids não aparece.
+        *(if (Kids.ativo()) emptyArray() else arrayOf<Linha>(
+            Opcao("Conta Saimo", { ContaTela.resumo() }) { ContaTela.abrir(this) { redesenhar() } })),
         Opcao(getString(R.string.ajustes_connect), { getString(R.string.ajustes_connect_n, Connect.quantosAutorizados()) }) {
             Painel.mostrar(this, getString(R.string.ajustes_connect), listOf(
                 Painel.Item("Endereço e PIN", "${Connect.obterIpLocal()} · PIN ${Connect.pinAtual}") {},
