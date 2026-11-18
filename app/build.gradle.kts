@@ -28,8 +28,8 @@ android {
         // Até a 2.0.2 era o 5 (21); quem ainda tem Android 5 fica na 2.0.2.
         minSdk = 23
         targetSdk = 37
-        versionCode = 30202
-        versionName = "3.2.2"
+        versionCode = 30203
+        versionName = "3.2.3"
     }
 
     signingConfigs {
