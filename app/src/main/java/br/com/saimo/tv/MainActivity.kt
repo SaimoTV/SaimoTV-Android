@@ -195,6 +195,14 @@ class MainActivity : AppCompatActivity(), Connect.Listener, Painel.Ouvinte {
     private var semCanais = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        lifecycleScope.launch {
+            val novas = runCatching { NovosEpisodios.verificar(applicationContext) }.getOrDefault(emptyList())
+            if (novas.isNotEmpty()) {
+                android.widget.Toast.makeText(this@MainActivity,
+                    "Episódio novo: " + novas.take(3).joinToString(", ") + if (novas.size > 3) " e mais ${novas.size - 3}" else "",
+                    android.widget.Toast.LENGTH_LONG).show()
+            }
+        }
         super.onCreate(savedInstanceState)
         // Sem canal nenhum (sem endereço, ou lista que não carregou) não há o
         // que tocar: a aba abre vazia, com o atalho para os endereços.

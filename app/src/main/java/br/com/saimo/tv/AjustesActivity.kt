@@ -177,6 +177,7 @@ class AjustesActivity : TelaComMenu() {
 
         Secao(getString(R.string.ajustes_geral)),
         Opcao("Estatísticas", { Estatisticas.texto(this) }) { },
+        Opcao("Séries favoritas com episódio novo", { NovosEpisodios.resumo(this) }) { NovosEpisodios.dispensarTodos(this); redesenhar() },
         // Perfis: cada um com os seus favoritos, onde parou e recentes.
         Opcao("Perfis", {
             val n = Perfis.todos().size
