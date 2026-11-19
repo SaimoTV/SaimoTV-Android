@@ -14,10 +14,15 @@ import kotlinx.coroutines.withContext
 object InfoDosTitulos {
 
     /** Classificação: 0 = Livre, 10..18 = idade; -1 = não informada. */
-    class Info(val ano: Int, val nota: Float, val idade: Int, val popularidade: Int)
+    class Info(val ano: Int, val nota: Float, val idade: Int, val popularidade: Int, val pais: String = "")
 
     private var filmes: HashMap<String, Info> = HashMap()
     private var series: HashMap<String, Info> = HashMap()
+
+    /** Países do filtro: código ISO e nome. */
+    val paises = listOf("BR" to "Brasil", "US" to "Estados Unidos", "KR" to "Coreia do Sul", "JP" to "Japão",
+        "GB" to "Reino Unido", "FR" to "França", "ES" to "Espanha", "MX" to "México", "IN" to "Índia",
+        "TR" to "Turquia", "CN" to "China", "DE" to "Alemanha", "IT" to "Itália")
 
     val prontos: Boolean get() = filmes.isNotEmpty() || series.isNotEmpty()
 
@@ -36,7 +41,7 @@ object InfoDosTitulos {
             val c = linha.split('\t')
             if (c.size < 6) continue
             val idade = when (val k = c[4]) { "L" -> 0; "" -> -1; else -> k.toIntOrNull() ?: -1 }
-            val info = Info(c[2].toIntOrNull() ?: 0, c[3].toFloatOrNull() ?: 0f, idade, c[5].toIntOrNull() ?: 0)
+            val info = Info(c[2].toIntOrNull() ?: 0, c[3].toFloatOrNull() ?: 0f, idade, c[5].toIntOrNull() ?: 0, c.getOrElse(6) { "" })
             if (c[0] == "s") s[c[1]] = info else f[c[1]] = info
         }
         filmes = f

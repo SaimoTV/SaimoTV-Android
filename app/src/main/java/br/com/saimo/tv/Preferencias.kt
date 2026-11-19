@@ -53,6 +53,16 @@ object Preferencias {
         get() = prefs.getBoolean("legendaFundo", true)
         set(valor) = prefs.edit().putBoolean("legendaFundo", valor).apply()
 
+    /** Cor da legenda: 0 branca, 1 amarela, 2 ciano, 3 verde. */
+    var legendaCor: Int
+        get() = prefs.getInt("legendaCor", 0).coerceIn(0, 3)
+        set(valor) = prefs.edit().putInt("legendaCor", valor).apply()
+
+    /** Posição da legenda: 0 baixa, 1 média, 2 alta. */
+    var legendaPosicao: Int
+        get() = prefs.getInt("legendaPosicao", 0).coerceIn(0, 2)
+        set(valor) = prefs.edit().putInt("legendaPosicao", valor).apply()
+
     /** Idioma da legenda escolhido da última vez ("" = sem legenda). */
     var legendaIdioma: String
         get() = prefs.getString("legendaIdioma", "") ?: ""

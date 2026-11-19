@@ -141,6 +141,12 @@ class AjustesActivity : TelaComMenu() {
             escolher(getString(R.string.player_tamanho_legenda), nomes.indices.toList(), Preferencias.legenda,
                 { nomes[it] }) { Preferencias.legenda = it }
         },
+        Opcao("Cor da legenda", { listOf("Branca", "Amarela", "Ciano", "Verde")[Preferencias.legendaCor] }) {
+            Preferencias.legendaCor = (Preferencias.legendaCor + 1) % 4; redesenhar()
+        },
+        Opcao("Posição da legenda", { listOf("Baixa", "Média", "Alta")[Preferencias.legendaPosicao] }) {
+            Preferencias.legendaPosicao = (Preferencias.legendaPosicao + 1) % 3; redesenhar()
+        },
         Opcao(getString(R.string.ajustes_legenda_fundo), { simNao(Preferencias.legendaFundo) }) {
             Preferencias.legendaFundo = !Preferencias.legendaFundo; redesenhar()
         },

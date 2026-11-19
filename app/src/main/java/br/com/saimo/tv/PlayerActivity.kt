@@ -1652,10 +1652,12 @@ class PlayerActivity : AppCompatActivity(), Connect.Listener {
     private fun estiloDaLegenda() {
         val vista = video.subtitleView ?: return
         val fundo = if (Preferencias.legendaFundo) 0x99000000.toInt() else 0x00000000
-        vista.setStyle(CaptionStyleCompat(0xFFFFFFFF.toInt(), fundo, 0x00000000,
+        val cor = intArrayOf(0xFFFFFFFF.toInt(), 0xFFFFE633.toInt(), 0xFF4FE3D0.toInt(), 0xFF66F266.toInt())[Preferencias.legendaCor]
+        vista.setStyle(CaptionStyleCompat(cor, fundo, 0x00000000,
             CaptionStyleCompat.EDGE_TYPE_DROP_SHADOW, 0xFF000000.toInt(), null))
         val fator = floatArrayOf(0.8f, 1f, 1.25f, 1.55f)[Preferencias.legenda.coerceIn(0, 3)]
         vista.setFractionalTextSize(SubtitleView.DEFAULT_TEXT_SIZE_FRACTION * fator)
+        vista.setBottomPaddingFraction(floatArrayOf(SubtitleView.DEFAULT_BOTTOM_PADDING_FRACTION, 0.14f, 0.26f)[Preferencias.legendaPosicao])
     }
 
     // MARK: - Voz e botões de mídia

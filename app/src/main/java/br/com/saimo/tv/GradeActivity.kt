@@ -99,6 +99,7 @@ class GradeActivity : TelaComMenu() {
     private var rotuloAnos = ""
     private var idadeMax: Int? = null
     private var notaMin = 0
+    private var paisFiltro: String? = null
     private val adaptador = Capas()
     private var colunas = 5
     private val adaptadorLetras = Letras()
@@ -138,6 +139,7 @@ class GradeActivity : TelaComMenu() {
         findViewById<TextView>(R.id.gradeAno).setOnClickListener { escolherAno() }
         findViewById<TextView>(R.id.gradeIdade).setOnClickListener { escolherIdade() }
         findViewById<TextView>(R.id.gradeNota).setOnClickListener { escolherNota() }
+        findViewById<TextView>(R.id.gradePais).setOnClickListener { escolherPais() }
         findViewById<TextView>(R.id.gradeOrdem).setOnClickListener {
             val opcoes = mutableListOf(Ordem.NOVOS to R.string.grade_novos, Ordem.AZ to R.string.grade_az)
             if (InfoDosTitulos.prontos) {
@@ -223,13 +225,14 @@ class GradeActivity : TelaComMenu() {
 
     private fun aplicar() {
         var lista = if (genero.isEmpty()) todos else todos.filter { Generos.tem(it.alvo.titulo, it.alvo.serie, genero) }
-        if (anos != null || idadeMax != null || notaMin > 0) {
+        if (anos != null || idadeMax != null || notaMin > 0 || paisFiltro != null) {
             lista = lista.filter { item ->
                 val d = InfoDosTitulos.de(item.alvo.titulo, item.alvo.serie)
                 val ano = d?.ano?.takeIf { it > 0 } ?: item.ano
                 (anos?.let { ano in it } ?: true) &&
                     (idadeMax?.let { max -> d != null && d.idade in 0..max } ?: true) &&
-                    (notaMin <= 0 || (d != null && d.nota >= notaMin))
+                    (notaMin <= 0 || (d != null && d.nota >= notaMin)) &&
+                    (paisFiltro?.let { p -> d?.pais == p } ?: true)
             }
         }
         // O mesmo filme em duas pastas ("A Guerra dos Mundos" e "A Guerra dos
@@ -302,6 +305,11 @@ class GradeActivity : TelaComMenu() {
             Icones.fim(this, R.drawable.ic_dropdown)
             visibility = if (comFiltros) View.VISIBLE else View.GONE
         }
+        findViewById<TextView>(R.id.gradePais).apply {
+            text = "País: " + (InfoDosTitulos.paises.firstOrNull { it.first == paisFiltro }?.second ?: getString(R.string.vod_todos))
+            Icones.fim(this, R.drawable.ic_dropdown)
+            visibility = if (comFiltros) View.VISIBLE else View.GONE
+        }
         findViewById<TextView>(R.id.gradeNota).apply {
             text = getString(R.string.grade_nota, if (notaMin > 0) getString(R.string.grade_nota_min, notaMin) else getString(R.string.grade_qualquer))
             Icones.fim(this, R.drawable.ic_dropdown)
@@ -329,6 +337,13 @@ class GradeActivity : TelaComMenu() {
             listOf(10, 12, 14, 16).map { getString(R.string.grade_ate_idade, it) to it }
         Painel.mostrar(this, getString(R.string.grade_idade, "").trim(' ', ':'), opcoes.map { (rotulo, idade) ->
             Painel.Item(rotulo, marcado = idadeMax == idade) { idadeMax = idade; aplicar() }
+        })
+    }
+
+    private fun escolherPais() {
+        val opcoes = listOf<Pair<String?, String>>(null to getString(R.string.vod_todos)) + InfoDosTitulos.paises
+        Painel.mostrar(this, "País", opcoes.map { (codigo, nome) ->
+            Painel.Item(nome, marcado = paisFiltro == codigo) { paisFiltro = codigo; aplicar() }
         })
     }
 
