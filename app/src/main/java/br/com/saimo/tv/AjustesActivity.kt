@@ -170,6 +170,7 @@ class AjustesActivity : TelaComMenu() {
         },
 
         Secao(getString(R.string.ajustes_geral)),
+        Opcao("Estatísticas", { Estatisticas.texto(this) }) { },
         // Perfis: cada um com os seus favoritos, onde parou e recentes.
         Opcao("Perfis", {
             val n = Perfis.todos().size

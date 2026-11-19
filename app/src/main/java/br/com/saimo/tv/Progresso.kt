@@ -134,6 +134,16 @@ object Progresso {
 
     fun visto(context: Context, chave: String): Boolean = prefs(context).getBoolean("v|$chave", false)
 
+    /** Marca ou desmarca à mão como visto (some do "continuar" ao marcar). */
+    fun marcarVisto(context: Context, chave: String, visto: Boolean) {
+        val editor = prefs(context).edit()
+        if (visto) editor.remove(chave).remove("$chave|d").remove("$chave|t").putBoolean("v|$chave", true)
+        else editor.remove("v|$chave")
+        tocarSerie(editor, chave)
+        editor.apply()
+        Connect.avisarMudancaLocal(context, 15000)
+    }
+
     /**
      * Um cartão do "Continue assistindo".
      *

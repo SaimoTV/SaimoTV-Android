@@ -1262,6 +1262,7 @@ class PlayerActivity : AppCompatActivity(), Connect.Listener {
         if (!tocou) return
         if (r.reservado) return
         Progresso.salvar(this, r.chave(ep), p.currentPosition, p.duration)
+        Estatisticas.tocando(this, p.isPlaying)
         ProximaNaTv.atualizar(this, r, ep, p.currentPosition, p.duration)
     }
 
@@ -1387,6 +1388,18 @@ class PlayerActivity : AppCompatActivity(), Connect.Listener {
         if (opcoes.size > 1) {
             botao(getString(R.string.player_fonte_n, fonte + 1), "fonte", R.drawable.ic_swap) { painelFonte() }
         }
+        if (player?.isCurrentMediaItemLive != true) {
+            val vel = player?.playbackParameters?.speed ?: 1f
+            botao(if (vel == 1f) "Velocidade" else "${vel}x", "velocidade", R.drawable.ic_speed) { painelVelocidade() }
+        }
+        if (r != null && !r.reservado) {
+            val chave = r.chave(ep)
+            val visto = Progresso.visto(this, chave)
+            botao(if (visto) "Desmarcar visto" else "Marcar como visto", "visto", R.drawable.ic_check) {
+                Progresso.marcarVisto(this, chave, !visto)
+                montarBotoes()
+            }
+        }
         botao(getString(R.string.player_audio_legenda), "faixas", R.drawable.ic_subtitles) { painelFaixas() }
         botao(getString(R.string.player_qualidade), "qualidade", R.drawable.ic_hd) { painelQualidade() }
         botao(getString(R.string.player_recomecar), "inicio", R.drawable.ic_replay) { player?.seekTo(0); mostrarControles() }
@@ -1508,6 +1521,17 @@ class PlayerActivity : AppCompatActivity(), Connect.Listener {
         guardar()
         esconderControles()
         PainelEpisodios.mostrar(this, r, atual) { escolhido -> trocarEpisodio(escolhido) }
+    }
+
+    private fun painelVelocidade() {
+        val p = player ?: return
+        val atual = p.playbackParameters.speed
+        Painel.mostrar(this, "Velocidade", listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 2f).map { v ->
+            Painel.Item(if (v == 1f) "Normal" else "${v}x", marcado = v == atual) {
+                p.setPlaybackSpeed(v)
+                montarBotoes()
+            }
+        })
     }
 
     private fun painelVersao() {
