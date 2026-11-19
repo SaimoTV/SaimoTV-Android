@@ -61,13 +61,40 @@ object BoasVindas {
                 "• Trocou de aparelho ou reinstalou? Nada se perde.",
             )) addView(texto(t, 16f, 0xFFA8B4C0.toInt()).apply { setPadding(0, dp(3), 0, dp(3)) })
         }
-        val entrar = botao("Entrar ou criar conta") {
-            ContaTela.abrir(activity) {
-                if (Conta.logado) { dialogo.dismiss(); aoTerminar() }
-            }
+        // O QR já aparece aqui; "Entrar com e-mail e senha" esconde o QR e abre o formulário.
+        val qr = android.widget.ImageView(activity).apply {
+            background = GradientDrawable().apply { setColor(Color.WHITE); cornerRadius = dp(12).toFloat() }
+            setPadding(dp(8), dp(8), dp(8), dp(8))
         }
-        esquerda.addView(entrar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-            .apply { topMargin = dp(22) })
+        val codigo = texto("…", 34f, 0xFF2DD4BF.toInt(), negrito = true).apply { letterSpacing = 0.12f }
+        val situacao = texto("Pedindo um código…", 14f, 0xFFA8B4C0.toInt())
+        val entrou = {
+            if (Conta.logado) { dialogo.dismiss(); aoTerminar() }
+        }
+        val blocoQr = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            addView(qr, LinearLayout.LayoutParams(dp(190), dp(190)))
+            addView(LinearLayout(activity).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(dp(20), 0, 0, 0)
+                addView(texto("Leia o QR no celular com o Saimo, ou digite o código em Ajustes > Conta Saimo > Entrar numa TV:", 14f, 0xFFA8B4C0.toInt()))
+                addView(codigo)
+                addView(situacao)
+            }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        }
+        esquerda.addView(blocoQr, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            .apply { topMargin = dp(16) })
+        val comEmail = botao("Entrar com e-mail e senha") {
+            blocoQr.visibility = android.view.View.GONE
+            ContaTela.mostrarSenha(activity, aoMudar = { entrou() }, aoFechar = {
+                if (!Conta.logado) blocoQr.visibility = android.view.View.VISIBLE
+            })
+        }
+        esquerda.addView(comEmail, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            .apply { topMargin = dp(12) })
+        val vigia = ContaTela.vigiarQr(activity, qr, codigo, situacao, 180) { entrou() }
+        dialogo.setOnDismissListener { vigia?.cancel() }
 
         val direita = lado().apply {
             addView(texto("Entrar sem login", 30f, negrito = true))
@@ -87,6 +114,6 @@ object BoasVindas {
         raiz.addView(direita, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         dialogo.setContentView(raiz)
         dialogo.show()
-        entrar.requestFocus()
+        comEmail.requestFocus()
     }
 }

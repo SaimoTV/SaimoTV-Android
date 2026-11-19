@@ -65,7 +65,43 @@ object ContaTela {
      * Entrar com e-mail e senha pelo controle (teclado do Saimo). Criar ou
      * trocar a senha fica no celular ou no site, onde chega o código do e-mail.
      */
-    private fun mostrarSenha(activity: Activity, aoMudar: () -> Unit) {
+    /**
+     * Pede o código da TV, desenha o QR e espera o celular aprovar. Vencido o
+     * código (10 min), pede outro sozinho. Devolve o trabalho para cancelar.
+     */
+    fun vigiarQr(
+        activity: Activity, qr: ImageView, codigo: TextView, situacao: TextView, tamanhoDp: Int,
+        aoEntrar: () -> Unit,
+    ): Job? {
+        val dono = activity as? LifecycleOwner ?: return null
+        val d = activity.resources.displayMetrics.density
+        return dono.lifecycleScope.launch(semDerrubar) {
+            while (isActive) {
+                val pedido = try {
+                    Conta.pedirCodigoDaTv()
+                } catch (e: Exception) {
+                    situacao.text = e.message ?: "Sem conexão: tentando de novo…"
+                    delay(10_000); continue
+                }
+                codigo.text = pedido.codigo
+                qr.setImageBitmap(runCatching { QrCodeGerador.paraBitmap(pedido.url, (tamanhoDp * d).toInt()) }.getOrNull())
+                situacao.text = "Esperando o celular…"
+                while (isActive && System.currentTimeMillis() < pedido.expiraEm) {
+                    delay(pedido.intervaloMs)
+                    val r = runCatching { Conta.conferirAprovacao(pedido) }.getOrElse { false }
+                    if (r == true) {
+                        situacao.text = "Pronto! Sincronizando…"
+                        delay(1200)
+                        aoEntrar()
+                        return@launch
+                    }
+                    if (r == null) break
+                }
+            }
+        }
+    }
+
+    fun mostrarSenha(activity: Activity, aoMudar: () -> Unit, aoFechar: () -> Unit = {}) {
         val dono = activity as? LifecycleOwner ?: return
         val d = activity.resources.displayMetrics.density
         fun dp(v: Int) = (v * d).toInt()
@@ -100,6 +136,7 @@ object ContaTela {
             .setNeutralButton("Criar conta", null)
             .setNegativeButton("Voltar", null)
             .create()
+        dialogo.setOnDismissListener { aoFechar() }
         dialogo.setOnShowListener {
             fun enviar(botao: android.view.View, criar: Boolean) {
                 val e = email.text.toString().trim()
@@ -170,32 +207,10 @@ object ContaTela {
 
         var tarefa: Job? = null
         dialogo.setOnDismissListener { tarefa?.cancel() }
-        tarefa = dono.lifecycleScope.launch(semDerrubar) {
-            while (isActive) {
-                val pedido = try {
-                    Conta.pedirCodigoDaTv()
-                } catch (e: Exception) {
-                    situacao.text = e.message ?: "Sem conexão: tentando de novo…"
-                    delay(10_000); continue
-                }
-                codigo.text = pedido.codigo
-                qr.setImageBitmap(runCatching { QrCodeGerador.paraBitmap(pedido.url, dp(240)) }.getOrNull())
-                situacao.text = "Esperando o celular…"
-                // Até vencer (10 min); vencido, pede outro código sozinho.
-                while (isActive && System.currentTimeMillis() < pedido.expiraEm) {
-                    delay(pedido.intervaloMs)
-                    val r = runCatching { Conta.conferirAprovacao(pedido) }.getOrElse { false }
-                    if (r == true) {
-                        situacao.text = "Pronto! Sincronizando…"
-                        delay(1200)
-                        dialogo.dismiss()
-                        aoMudar()
-                        android.widget.Toast.makeText(activity, "Entrou na conta ${Conta.estado.email.orEmpty()}", android.widget.Toast.LENGTH_LONG).show()
-                        return@launch
-                    }
-                    if (r == null) break
-                }
-            }
+        tarefa = vigiarQr(activity, qr, codigo, situacao, 240) {
+            dialogo.dismiss()
+            aoMudar()
+            android.widget.Toast.makeText(activity, "Entrou na conta ${Conta.estado.email.orEmpty()}", android.widget.Toast.LENGTH_LONG).show()
         }
         dialogo.show()
     }
