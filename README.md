@@ -425,3 +425,8 @@ publicado. O On Demand não refaz a página ao voltar de um filme (só o "contin
 ## Conta Saimo (opcional)
 
 Ajustes > Conta Saimo mostra o QR e o código (o celular ou o site logado aprova) e tem "Entrar com e-mail e senha" pelo teclado do Saimo. Logado: sincronizar agora e sair. Código em `Conta.kt` e `ContaTela.kt`; sincroniza pelo pacote do Connect (`SincroniaConnect`). O build de depuração usa o servidor local (`http://10.0.2.2:8787`); o de produção, `https://conta.saimo-tv.com.br`. Contrato: SaimoPlayer/docs/conta.md. Sem conta, nada muda.
+
+## Recursos pessoais (3.1.1)
+
+- Estatísticas em Ajustes, botão de velocidade e "Marcar como visto" no player.
+- Filtro de país na grade, aviso de episódio novo (séries favoritas), cor e posição da legenda.
