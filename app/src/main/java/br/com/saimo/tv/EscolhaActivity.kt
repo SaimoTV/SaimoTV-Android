@@ -119,14 +119,22 @@ class EscolhaActivity : TelaComMenu(), Connect.Listener {
         // Com 2 ou mais perfis, a partida pergunta quem está assistindo; escolhido o
         // perfil, esta tela recomeça (com o extra) e segue para o último canal se for o caso.
         val depoisDoPerfil = intent?.getBooleanExtra(PerfisActivity.EXTRA_DEPOIS_DO_PERFIL, false) == true
-        if (savedInstanceState == null && !veioDeLink && !depoisDoPerfil && Perfis.deveEscolherAoAbrir()) {
-            quandoAberturaAcabar {
-                if (!isFinishing) startActivity(Intent(this, PerfisActivity::class.java)
-                    .putExtra(PerfisActivity.EXTRA_OBRIGATORIA, true))
+        // Sem conta e sem ter escolhido "entrar sem login": primeiro as boas-vindas.
+        fun seguirPartida() {
+            if (savedInstanceState == null && !veioDeLink && !depoisDoPerfil && Perfis.deveEscolherAoAbrir()) {
+                quandoAberturaAcabar {
+                    if (!isFinishing) startActivity(Intent(this, PerfisActivity::class.java)
+                        .putExtra(PerfisActivity.EXTRA_OBRIGATORIA, true))
+                }
+            } else if (savedInstanceState == null && !veioDeLink && Preferencias.abrirEm == "canal" &&
+                Preferencias.ultimoCanal != null) {
+                quandoAberturaAcabar { if (!isFinishing) startActivity(Intent(this, MainActivity::class.java)) }
             }
-        } else if (savedInstanceState == null && !veioDeLink && Preferencias.abrirEm == "canal" &&
-            Preferencias.ultimoCanal != null) {
-            quandoAberturaAcabar { if (!isFinishing) startActivity(Intent(this, MainActivity::class.java)) }
+        }
+        if (savedInstanceState == null && !veioDeLink && !depoisDoPerfil && BoasVindas.precisa(this)) {
+            quandoAberturaAcabar { if (!isFinishing) BoasVindas.mostrar(this) { seguirPartida() } }
+        } else {
+            seguirPartida()
         }
     }
 

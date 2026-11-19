@@ -40,7 +40,7 @@ class AjustesActivity : TelaComMenu() {
 
     private sealed interface Linha
     private data class Secao(val nome: String) : Linha
-    private data class Opcao(val nome: String, val valor: () -> String, val acao: () -> Unit) : Linha
+    private data class Opcao(val nome: String, val valor: () -> String, val destaque: Boolean = false, val acao: () -> Unit) : Linha
 
     private lateinit var lista: RecyclerView
     private val adaptador = Adaptador()
@@ -124,6 +124,9 @@ class AjustesActivity : TelaComMenu() {
     }
 
     private fun linhas(): List<Linha> = listOf(
+        // Conta Saimo (opcional): primeira opção, em destaque enquanto não há conta. No Kids não aparece.
+        *(if (Kids.ativo()) emptyArray() else arrayOf<Linha>(
+            Opcao("Conta Saimo", { ContaTela.resumo() }, destaque = !Conta.logado) { ContaTela.abrir(this) { redesenhar() } })),
         Secao(getString(R.string.ajustes_reproducao)),
         Opcao(getString(R.string.ajustes_versao), { Titulos.rotulo(Preferencias.versao) }) {
             escolher(getString(R.string.ajustes_versao), listOf("dub", "leg"), Preferencias.versao,
@@ -219,9 +222,6 @@ class AjustesActivity : TelaComMenu() {
             }
         },
 
-        // Conta Saimo (opcional): entrar pelo celular (QR) e sincronizar pela internet. No Kids não aparece.
-        *(if (Kids.ativo()) emptyArray() else arrayOf<Linha>(
-            Opcao("Conta Saimo", { ContaTela.resumo() }) { ContaTela.abrir(this) { redesenhar() } })),
         Opcao(getString(R.string.ajustes_connect), { getString(R.string.ajustes_connect_n, Connect.quantosAutorizados()) }) {
             Painel.mostrar(this, getString(R.string.ajustes_connect), listOf(
                 Painel.Item("Endereço e PIN", "${Connect.obterIpLocal()} · PIN ${Connect.pinAtual}") {},
@@ -341,6 +341,9 @@ class AjustesActivity : TelaComMenu() {
                         text = linha.valor(); visibility = View.VISIBLE
                     }
                     holder.itemView.setOnClickListener { linha.acao() }
+                    holder.itemView.foreground = if (linha.destaque) android.graphics.drawable.GradientDrawable().apply {
+                        setColor(0x00000000); setStroke(4, 0xFF2DD4BF.toInt()); cornerRadius = 16f
+                    } else null
                     holder.itemView.setOnFocusChangeListener { _, tem ->
                         if (tem) posicaoEmFoco = holder.bindingAdapterPosition
                     }
