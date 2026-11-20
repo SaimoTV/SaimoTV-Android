@@ -432,3 +432,7 @@ Remoções (3.3.3): o que sai do Continuar assistindo, dos favoritos e das Minha
 
 - Estatísticas em Ajustes, botão de velocidade e "Marcar como visto" no player.
 - Filtro de país na grade, aviso de episódio novo (séries favoritas), cor e posição da legenda.
+
+## Ajustes da 3.3.4
+
+- **On Demand com cache**: `Destaques` abre com a cópia em disco (qualquer idade) e a página confere a novidade por trás (`Destaques.novidades`), remontando só se o arquivo mudou.

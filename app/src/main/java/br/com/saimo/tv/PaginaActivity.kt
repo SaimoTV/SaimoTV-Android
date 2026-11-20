@@ -112,7 +112,12 @@ open class PaginaActivity : TelaComMenu() {
         // O menu do topo já diz em que página se está.
         findViewById<TextView>(R.id.paginaNome).visibility = android.view.View.GONE
         destaque.padrao(nome, getString(R.string.vod_carregando))
-        lifecycleScope.launch(semDerrubar) { montar() }
+        lifecycleScope.launch(semDerrubar) {
+            // Abre com o que já está guardado; depois confere a novidade e só
+            // remonta a página se o arquivo mudou.
+            montar()
+            if (Destaques.novidades(this@PaginaActivity) != null) montar()
+        }
     }
 
     override fun onRestart() {

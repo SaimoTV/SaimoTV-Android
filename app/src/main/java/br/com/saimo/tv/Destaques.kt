@@ -60,8 +60,7 @@ object Destaques {
 
     private suspend fun filasBruto(context: Context): List<Fila> = withContext(Dispatchers.IO) {
         val local = File(File(context.filesDir, "vod"), ARQUIVO)
-        val dentroDoPrazo = local.exists() && System.currentTimeMillis() - local.lastModified() < VALIDADE_MS
-        lidas?.let { (quando, filas) -> if (dentroDoPrazo && quando == local.lastModified()) return@withContext filas }
+        lidas?.let { (quando, filas) -> if (local.exists() && quando == local.lastModified()) return@withContext filas }
         val texto = texto(context) ?: return@withContext emptyList()
         val versao = local.lastModified()
         val out = mutableListOf<Fila>()
@@ -106,12 +105,37 @@ object Destaques {
 
     fun limpar() { lidas = null }
 
+    /**
+     * Confere por trás se o arquivo mudou (a tela já mostrou o guardado). Devolve
+     * as fileiras novas só quando mudou; igual, nulo (a tela fica como está).
+     */
+    suspend fun novidades(context: Context): List<Fila>? = withContext(Dispatchers.IO) {
+        val local = File(File(context.filesDir, "vod").apply { mkdirs() }, ARQUIVO)
+        val baixado = baixar() ?: return@withContext null
+        val antes = runCatching { if (local.exists()) local.readText() else null }.getOrNull()
+        runCatching { local.writeText(baixado) }
+        if (antes == baixado) return@withContext null
+        lidas = null
+        filas(context)
+    }
+
+    private fun baixar(): String? = runCatching {
+        val base = Vod.BASE ?: return@runCatching null
+        val pedido = Request.Builder().url(base + ARQUIVO)
+            .header("User-Agent", Playback.DEFAULT_USER_AGENT)
+            .header("Accept", "*/*")
+            .build()
+        Playback.client.newCall(pedido).execute().use { resposta ->
+            if (!resposta.isSuccessful) null else resposta.body?.string()
+        }
+    }.getOrNull()?.takeIf { it.isNotBlank() }
+
     private fun texto(context: Context): String? {
         val pasta = File(context.filesDir, "vod").apply { mkdirs() }
         val local = File(pasta, ARQUIVO)
-        val fresco = local.exists() && local.length() > 0 &&
-            System.currentTimeMillis() - local.lastModified() < VALIDADE_MS
-        if (fresco) return runCatching { local.readText() }.getOrNull()
+        // Já há uma cópia: abre com ela na hora (qualquer idade); a tela confere
+        // a novidade por trás (novidades) e troca se mudou.
+        if (local.exists() && local.length() > 0) return runCatching { local.readText() }.getOrNull()
 
         val baixado = runCatching {
             val base = Vod.BASE ?: return@runCatching null
