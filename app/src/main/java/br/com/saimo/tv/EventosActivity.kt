@@ -184,9 +184,12 @@ class EventosActivity : TelaComMenu() {
         }
     }
 
-    // A agenda é em horário de Brasília. TV Box costuma vir com o fuso em UTC e,
-    // com o fuso do aparelho, os jogos apareciam 3 h adiantados.
-    private val brasilia: TimeZone = TimeZone.getTimeZone("America/Sao_Paulo")
+    // A hora no fuso de quem assiste (Acre, Amazonas, Noronha… cada um vê a sua).
+    // TV Box costuma vir em UTC sem ninguém ter escolhido: aí vale Brasília (antes,
+    // com o fuso cru do aparelho, os jogos apareciam 3 h adiantados nelas).
+    private val brasilia: TimeZone = TimeZone.getDefault().let { tz ->
+        if (tz.rawOffset == 0 && !tz.useDaylightTime()) TimeZone.getTimeZone("America/Sao_Paulo") else tz
+    }
     private val hora = SimpleDateFormat("HH:mm", Locale.getDefault()).apply { timeZone = brasilia }
     private val semana = SimpleDateFormat("EEE", Locale.forLanguageTag("pt-BR")).apply { timeZone = brasilia }
 
