@@ -61,7 +61,10 @@ class SaimoApp : Application(), SingletonImageLoader.Factory {
                     atividadeAtual = null
                 }
             }
-            override fun onActivityStopped(activity: android.app.Activity) {}
+            override fun onActivityStopped(activity: android.app.Activity) {
+                // Nenhuma tela do app na frente: foi para segundo plano (não troca de tela).
+                if (atividadeAtual == null) Conta.aoSair()
+            }
             override fun onActivitySaveInstanceState(activity: android.app.Activity, outState: android.os.Bundle) {}
             override fun onActivityDestroyed(activity: android.app.Activity) {
                 if (atividadeAtual === activity) {

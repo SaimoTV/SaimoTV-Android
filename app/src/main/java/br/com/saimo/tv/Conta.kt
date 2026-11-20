@@ -56,8 +56,9 @@ object Conta {
         if (logado) escopo.launch(semDerrubar) {
             delay(5000)
             sincronizar()
-            // A cada 10 minutos enquanto o app está aberto.
-            while (true) { delay(10 * 60_000L); if (logado) sincronizar() }
+            // A cada 15 minutos com o app na frente (em segundo plano não pergunta;
+            // voltar para ele já sincroniza).
+            while (true) { delay(15 * 60_000L); if (logado && SaimoApp.atividadeAtual != null) sincronizar() }
         }
     }
 
@@ -170,8 +171,19 @@ object Conta {
         }
     }
 
-    /** Entre um envio e outro, no mínimo isso (assistindo, o ponto muda o tempo todo). */
-    private const val INTERVALO_MINIMO = 120_000L
+    /** Entre um envio e outro, no mínimo isso (assistindo, o ponto muda o tempo todo). Ao sair do app, vai na hora (aoSair). */
+    private const val INTERVALO_MINIMO = 300_000L
+
+    /** O app foi para segundo plano: o que mudou e ainda não foi (ex.: o ponto do filme) vai já. */
+    fun aoSair() {
+        if (!::app.isInitialized || !logado || estado.sincronizando) return
+        escopo.launch(semDerrubar) {
+            if (runCatching { SincroniaConnect.pacote(app).toString() != ultimoEnviado }.getOrDefault(false)) {
+                agendado?.cancel()
+                sincronizar()
+            }
+        }
+    }
 
     /**
      * Algo mudou aqui (o Connect avisa): manda em alguns segundos, várias

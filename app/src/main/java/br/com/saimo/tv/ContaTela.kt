@@ -94,8 +94,12 @@ object ContaTela {
                     codigo.text = pedido.codigo
                     qr.setImageBitmap(runCatching { QrCodeGerador.paraBitmap(pedido.url, (tamanhoDp * d).toInt()) }.getOrNull())
                     situacao.text = "Esperando o celular…"
+                    val inicio = System.currentTimeMillis()
                     while (isActive && System.currentTimeMillis() < pedido.expiraEm) {
-                        delay(pedido.intervaloMs)
+                        // Rápido no começo e mais espaçado depois: 8 s nos 2 primeiros
+                        // minutos, então 15 s, e 20 s depois de 5 min (cada pergunta é cobrada).
+                        val passou = System.currentTimeMillis() - inicio
+                        delay(if (passou < 120_000) pedido.intervaloMs else if (passou < 300_000) 15_000L else 20_000L)
                         // Tela por trás de outra (ou o app em segundo plano): não pergunta.
                         if (!dono.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) continue
                         val r = runCatching { Conta.conferirAprovacao(pedido) }.getOrElse { false }
