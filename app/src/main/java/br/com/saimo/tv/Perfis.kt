@@ -29,7 +29,7 @@ object Perfis {
     )
 
     /** Os arquivos de preferências que são de cada perfil (apagados junto com ele). */
-    val ARQUIVOS_DO_PERFIL = listOf("saimo", "vodfav", "progresso", "radios", "lembretes", "novelinhas", "ajustes")
+    val ARQUIVOS_DO_PERFIL = listOf("saimo", "vodfav", "progresso", "radios", "lembretes", "novelinhas", "ajustes", "remocoes")
 
     /** `kids`: perfil infantil (só títulos até 12 anos, nada adulto); `codigo`: SHA-256 de saimo-kids:<id>:<4 dígitos>. */
     data class Perfil(val id: String, val nome: String, val avatar: String, val em: Long,

@@ -38,7 +38,6 @@ object Conta {
     private val trava = Mutex()
     private var agendado: Job? = null
     private var ultimoEnviado = ""
-    @Volatile private var aplicandoAte = 0L
     @Volatile var estado = Estado(null, 0, null, false)
         private set
     private val ouvintes = java.util.concurrent.CopyOnWriteArraySet<(Estado) -> Unit>()
@@ -135,25 +134,25 @@ object Conta {
     // ---------- sincronizar ----------
 
     /**
-     * Baixa o que a conta tem, junta aqui (as regras do Connect) e manda o que a
-     * TV tem; o servidor junta de novo e guarda. Só manda quando algo mudou.
+     * Com mudança aqui: manda (PUT) e o servidor devolve tudo já juntado, que é
+     * aplicado aqui. Sem mudança: só baixa (GET) e junta. Um pedido por
+     * sincronia (cada pedido ao servidor é cobrado).
      */
     suspend fun sincronizar(forcar: Boolean = false) {
         if (!logado) return
         trava.withLock {
             mudar(estado.copy(sincronizando = true))
             try {
-                val remoto = api("GET", "/v1/dados").optJSONObject("dados")
-                if (remoto != null) {
-                    aplicandoAte = System.currentTimeMillis() + 3000
-                    // As telas releem o que mudou ao voltar para elas.
-                    SincroniaConnect.aplicar(app, remoto)
-                }
                 val pacote = SincroniaConnect.pacote(app).toString()
-                if (forcar || pacote != ultimoEnviado) {
-                    api("PUT", "/v1/dados", JSONObject().put("dados", JSONObject(pacote)))
-                    ultimoEnviado = pacote
+                val remoto = if (forcar || pacote != ultimoEnviado) {
+                    api("PUT", "/v1/dados", JSONObject().put("dados", JSONObject(pacote))).optJSONObject("dados")
+                } else {
+                    api("GET", "/v1/dados").optJSONObject("dados")
                 }
+                // As telas releem o que mudou ao voltar para elas.
+                if (remoto != null) SincroniaConnect.aplicar(app, remoto)
+                // O servidor já tem tudo o que ficou aqui depois de juntar: só manda de novo se mudar.
+                ultimoEnviado = SincroniaConnect.pacote(app).toString()
                 val agora = System.currentTimeMillis()
                 prefs().edit().putLong("sincronizadaEm", agora).apply()
                 mudar(estado.copy(sincronizadaEm = agora, erro = null, sincronizando = false))
@@ -171,10 +170,22 @@ object Conta {
         }
     }
 
-    /** Algo mudou aqui (o Connect avisa): manda em alguns segundos, várias mudanças num envio só. */
+    /** Entre um envio e outro, no mínimo isso (assistindo, o ponto muda o tempo todo). */
+    private const val INTERVALO_MINIMO = 120_000L
+
+    /**
+     * Algo mudou aqui (o Connect avisa): manda em alguns segundos, várias
+     * mudanças num envio só, no máximo um envio a cada 2 min. Sem mudança desde
+     * o último envio (eco de juntar), não vai à rede.
+     */
     fun agendar(atrasoMs: Long = 15_000) {
-        if (!::app.isInitialized || !logado || System.currentTimeMillis() < aplicandoAte) return
+        if (!::app.isInitialized || !logado) return
         agendado?.cancel()
-        agendado = escopo.launch(semDerrubar) { delay(atrasoMs); sincronizar() }
+        val espera = maxOf(atrasoMs, INTERVALO_MINIMO - (System.currentTimeMillis() - estado.sincronizadaEm))
+        agendado = escopo.launch(semDerrubar) {
+            delay(espera)
+            if (runCatching { SincroniaConnect.pacote(app).toString() == ultimoEnviado }.getOrDefault(false)) return@launch
+            sincronizar()
+        }
     }
 }

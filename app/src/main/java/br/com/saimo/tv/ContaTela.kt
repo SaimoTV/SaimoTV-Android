@@ -76,27 +76,59 @@ object ContaTela {
         val dono = activity as? LifecycleOwner ?: return null
         val d = activity.resources.displayMetrics.density
         return dono.lifecycleScope.launch(semDerrubar) {
+            // Um código por rodada: venceu, para de perguntar e espera o OK em
+            // "Gerar novo código" (cada pergunta ao servidor é cobrada; TV esquecida
+            // nesta tela não pergunta para sempre).
+            val fundoOriginal = situacao.background
             while (isActive) {
-                val pedido = try {
-                    Conta.pedirCodigoDaTv()
-                } catch (e: Exception) {
-                    situacao.text = e.message ?: "Sem conexão: tentando de novo…"
-                    delay(10_000); continue
-                }
-                codigo.text = pedido.codigo
-                qr.setImageBitmap(runCatching { QrCodeGerador.paraBitmap(pedido.url, (tamanhoDp * d).toInt()) }.getOrNull())
-                situacao.text = "Esperando o celular…"
-                while (isActive && System.currentTimeMillis() < pedido.expiraEm) {
-                    delay(pedido.intervaloMs)
-                    val r = runCatching { Conta.conferirAprovacao(pedido) }.getOrElse { false }
-                    if (r == true) {
-                        situacao.text = "Pronto! Sincronizando…"
-                        delay(1200)
-                        aoEntrar()
-                        return@launch
+                var pedido: Conta.Pedido? = null
+                for (tentativa in 0 until 3) {
+                    pedido = try { Conta.pedirCodigoDaTv() } catch (e: Exception) {
+                        situacao.text = e.message ?: "Sem conexão: tentando de novo…"
+                        if (tentativa < 2) delay(10_000)
+                        null
                     }
-                    if (r == null) break
+                    if (pedido != null) break
                 }
+                if (pedido != null) {
+                    codigo.text = pedido.codigo
+                    qr.setImageBitmap(runCatching { QrCodeGerador.paraBitmap(pedido.url, (tamanhoDp * d).toInt()) }.getOrNull())
+                    situacao.text = "Esperando o celular…"
+                    while (isActive && System.currentTimeMillis() < pedido.expiraEm) {
+                        delay(pedido.intervaloMs)
+                        // Tela por trás de outra (ou o app em segundo plano): não pergunta.
+                        if (!dono.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) continue
+                        val r = runCatching { Conta.conferirAprovacao(pedido) }.getOrElse { false }
+                        if (r == true) {
+                            situacao.text = "Pronto! Sincronizando…"
+                            delay(1200)
+                            aoEntrar()
+                            return@launch
+                        }
+                        if (r == null) break
+                    }
+                }
+                qr.setImageBitmap(null)
+                codigo.text = ""
+                val clique = kotlinx.coroutines.CompletableDeferred<Unit>()
+                situacao.text = if (pedido != null) "O código venceu. Aperte OK aqui para gerar outro" else "Sem conexão. Aperte OK aqui para tentar de novo"
+                situacao.isFocusable = true
+                situacao.isClickable = true
+                situacao.setPadding((14 * d).toInt(), (10 * d).toInt(), (14 * d).toInt(), (10 * d).toInt())
+                situacao.background = android.graphics.drawable.StateListDrawable().apply {
+                    addState(intArrayOf(android.R.attr.state_focused), android.graphics.drawable.GradientDrawable().apply {
+                        setColor(0x332DD4BF); setStroke((2 * d).toInt(), 0xFF2DD4BF.toInt()); cornerRadius = 10 * d
+                    })
+                    addState(intArrayOf(), android.graphics.drawable.GradientDrawable().apply { setColor(0x14FFFFFF); cornerRadius = 10 * d })
+                }
+                situacao.setOnClickListener { clique.complete(Unit) }
+                situacao.requestFocus()
+                clique.await()
+                situacao.setOnClickListener(null)
+                situacao.isFocusable = false
+                situacao.isClickable = false
+                situacao.background = fundoOriginal
+                situacao.text = "Pedindo um código…"
             }
         }
     }

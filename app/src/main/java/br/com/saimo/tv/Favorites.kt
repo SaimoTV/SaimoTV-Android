@@ -20,7 +20,9 @@ object Favorites {
     fun todos(): Set<String> = cache.toSet()
 
     fun toggle(context: Context, name: String) {
-        if (!cache.remove(name)) cache.add(name)
+        val removido = cache.remove(name)
+        if (!removido) cache.add(name)
+        Remocoes.anotarCanal(context, name, removido)
         Perfis.prefs(context, FILE)
             // Uma cópia, sempre: entregar o mesmo conjunto que as preferências
             // já guardam faz o Android achar que nada mudou e não gravar em

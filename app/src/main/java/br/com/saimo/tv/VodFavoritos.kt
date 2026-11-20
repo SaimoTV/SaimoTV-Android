@@ -60,6 +60,7 @@ object VodFavoritos {
         }
         if (!fora) atual.add(0, item)
         gravar(context, atual)
+        Remocoes.anotarFavorito(context, item.serie, item.titulo, item.ano, removido = fora)
         Connect.avisarMudancaLocal(context, 1000)
         return !fora
     }

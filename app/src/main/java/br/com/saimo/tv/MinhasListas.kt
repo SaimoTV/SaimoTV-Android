@@ -315,6 +315,7 @@ object MinhasListas {
         val r = lido.acervo.gravar(pastaDoAcervo(id))
         gravarIndice(listas + Lista(id, nomeLivre(nome), link?.trim(), System.currentTimeMillis(), true, lido.canais.size,
             r.filmes, r.series))
+        Remocoes.anotarLista(app, link?.trim(), removida = false)
         Connect.avisarMudancaLocal(app, 1000)
     }
 
@@ -333,8 +334,10 @@ object MinhasListas {
     @Synchronized
     fun alternar(id: String) = gravarIndice(listas.map { if (it.id == id) it.copy(ativa = !it.ativa) else it })
 
+    /** `anotar` falso: quem tira é a sincronia (a remoção já veio de outro aparelho). */
     @Synchronized
-    fun remover(id: String) {
+    fun remover(id: String, anotar: Boolean = true) {
+        if (anotar) Remocoes.anotarLista(app, listas.firstOrNull { it.id == id }?.link, removida = true)
         File(pasta(), "$id.json").delete()
         pastaDoAcervo(id).deleteRecursively()
         gravarIndice(listas.filterNot { it.id == id })

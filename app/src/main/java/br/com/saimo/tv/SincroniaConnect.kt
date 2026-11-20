@@ -23,7 +23,8 @@ import org.json.JSONObject
  * (desmarcar num aparelho não desmarca no outro). Endereços: vale o escolhido
  * por último; quem nunca escolheu (padrão ou vazio) fica com o que o outro
  * escolheu. Listas adicionadas: união pelo link (a que veio de arquivo fica
- * só no aparelho).
+ * só no aparelho). Remoções (Remocoes.kt) viajam junto: o que foi tirado num
+ * aparelho não volta pela união (só volta se entrar de novo depois).
  */
 object SincroniaConnect {
 
@@ -32,6 +33,7 @@ object SincroniaConnect {
     /** Onde parou, títulos e canais favoritos de um perfil, no formato do pacote. */
     private fun dadosDoPerfil(context: Context, id: String): Triple<JSONArray, JSONArray, JSONArray> {
         val tudo = Perfis.prefs(context, ARQUIVO, id).all
+        val reg = Remocoes.ler(context, id)
         val progresso = JSONArray()
         for ((chave, valor) in tudo) {
             if (!(chave.startsWith("f|") || chave.startsWith("s|")) || chave.endsWith("|d") || chave.endsWith("|t")) continue
@@ -41,6 +43,8 @@ object SincroniaConnect {
             val serie = campos[0] == "s"
             val meta = (tudo["m|$chave"] as? String)?.split("\t")
             val titulo = meta?.getOrNull(0)?.takeIf { it.isNotBlank() } ?: campos.getOrNull(1) ?: continue
+            val emItem = tudo["$chave|t"] as? Long ?: 0L
+            if (Remocoes.tituloRemovido(reg.prog, if (serie) "s" else "f", titulo, meta?.getOrNull(3).orEmpty(), emItem)) continue
             progresso.put(JSONObject().apply {
                 put("tipo", if (serie) "s" else "f")
                 put("titulo", titulo)
@@ -60,6 +64,7 @@ object SincroniaConnect {
                 put("titulo", f.titulo)
                 put("ano", f.ano)
                 put("letra", f.letra)
+                reg.favEm[Remocoes.chaveTitulo(if (f.serie) "s" else "f", f.titulo, f.ano)]?.let { put("em", it) }
             })
         }
         val favCanais = JSONArray()
@@ -93,7 +98,8 @@ object SincroniaConnect {
             val (pr, ft, fc) = if (p.id == Perfis.PRINCIPAL) Triple(progresso, favTitulos, favCanais) else dadosDoPerfil(context, p.id)
             perfis.put(JSONObject().put("id", p.id).put("nome", p.nome).put("avatar", p.avatar).put("em", p.em)
                 .put("progresso", pr).put("favTitulos", ft).put("favCanais", fc)
-                .apply { if (p.kids) { put("kids", true); put("codigo", p.codigo) } })
+                .apply { if (p.kids) { put("kids", true); put("codigo", p.codigo) } }
+                .also { Remocoes.anexar(it, Remocoes.ler(context, p.id)) })
         }
         val removidos = JSONArray()
         for (r in Perfis.removidos()) removidos.put(JSONObject().put("id", r.id).put("em", r.em))
@@ -109,12 +115,14 @@ object SincroniaConnect {
                 put("canais", Enderecos.canais.orEmpty())
                 put("filmes", Enderecos.filmes.orEmpty())
                 put("em", Enderecos.escolhidosEm(context))
+                val regListas = Remocoes.lerListas(context)
                 put("minhas", JSONArray().apply {
                     for (l in MinhasListas.todas()) {
                         val link = l.link ?: continue
-                        put(JSONObject().put("nome", l.nome).put("link", link))
+                        put(JSONObject().put("nome", l.nome).put("link", link).apply { regListas.em[link]?.let { put("em", it) } })
                     }
                 })
+                if (regListas.rem.isNotEmpty()) put("minhasRemovidas", JSONArray(regListas.rem))
             })
         }.also { pacoteJson ->
             anexarAddonsEDebrid(
@@ -178,13 +186,19 @@ object SincroniaConnect {
                 Listas.recarregar(context)
             }
         }
-        val minhas = l.optJSONArray("minhas") ?: return
+        val reg = Remocoes.juntarListas(context, l.optJSONArray("minhasRemovidas"))
         var novas = 0
+        for (x in MinhasListas.todas()) {
+            val link = x.link ?: continue
+            if (Remocoes.listaRemovida(reg, link)) { runCatching { MinhasListas.remover(x.id, anotar = false) }; novas++ }
+        }
+        val minhas = l.optJSONArray("minhas") ?: JSONArray()
         for (i in 0 until minhas.length()) {
             val m = minhas.optJSONObject(i) ?: continue
             val link = m.optString("link").trim()
             if (!(link.startsWith("http://") || link.startsWith("https://"))) continue
             if (MinhasListas.todas().any { it.link == link }) continue
+            if (Remocoes.listaRemovida(reg, link, m.optLong("em"))) continue
             runCatching { MinhasListas.adicionar(m.optString("nome"), link, MinhasListas.baixar(link)) }
                 .onSuccess { novas++ }
         }
@@ -221,8 +235,26 @@ object SincroniaConnect {
     }
     /** Junta onde parou e os favoritos de um perfil vindos do outro aparelho. */
     private fun aplicarDoPerfil(context: Context, id: String, json: JSONObject) {
+        val reg = Remocoes.juntar(context, id, json)
         val prefs = Perfis.prefs(context, ARQUIVO, id)
         val editor = prefs.edit()
+        // O que foi removido em outro aparelho depois de entrar aqui sai daqui também.
+        if (reg.prog.isNotEmpty()) {
+            val tudo = prefs.all
+            for ((chave, _) in tudo) {
+                if (!(chave.startsWith("f|") || chave.startsWith("s|")) || chave.endsWith("|d") || chave.endsWith("|t")) continue
+                val meta = (tudo["m|$chave"] as? String)?.split("\t")
+                val serie = chave.startsWith("s|")
+                val nomeNaChave = chave.split("|").getOrNull(1).orEmpty()
+                val titulo = meta?.getOrNull(0)?.takeIf { it.isNotBlank() } ?: if (serie) Generos.semAno(nomeNaChave) else nomeNaChave
+                val ano = meta?.getOrNull(3).orEmpty()
+                if (!Remocoes.tituloRemovido(reg.prog, if (serie) "s" else "f", titulo, ano, tudo["$chave|t"] as? Long ?: 0L)) continue
+                editor.remove(chave).remove("$chave|d").remove("$chave|t").remove("m|$chave")
+                if (serie && Remocoes.tituloRemovido(reg.prog, "s", titulo, ano, tudo["u|$nomeNaChave|t"] as? Long ?: 0L)) {
+                    editor.remove("u|$nomeNaChave").remove("u|$nomeNaChave|t")
+                }
+            }
+        }
         val lista = json.optJSONArray("progresso") ?: JSONArray()
         for (i in 0 until lista.length()) {
             val p = lista.optJSONObject(i) ?: continue
@@ -235,6 +267,7 @@ object SincroniaConnect {
             val pos = p.optLong("pos")
             val em = p.optLong("em")
             if (pos <= 0 || (serie && (temporada <= 0 || episodio <= 0))) continue
+            if (Remocoes.tituloRemovido(reg.prog, if (serie) "s" else "f", titulo, ano, em)) continue
             // A série é guardada com o ano no nome, como no resto do app.
             val nome = if (serie && ano.isNotBlank()) "$titulo ($ano)" else titulo
             val chave = if (serie) Progresso.chaveEpisodio(nome, temporada, episodio) else Progresso.chaveFilme(nome)
@@ -252,12 +285,16 @@ object SincroniaConnect {
 
         val titulos = json.optJSONArray("favTitulos") ?: JSONArray()
         val atuais = lerFavTitulos(context, id).toMutableList()
-        var mudou = false
+        var mudou = atuais.removeAll {
+            val t = if (it.serie) "s" else "f"
+            Remocoes.tituloRemovido(reg.fav, t, it.titulo, it.ano, reg.favEm[Remocoes.chaveTitulo(t, it.titulo, it.ano)] ?: 0L)
+        }
         for (i in 0 until titulos.length()) {
             val f = titulos.optJSONObject(i) ?: continue
             val titulo = f.optString("titulo").takeIf { it.isNotBlank() } ?: continue
             val serie = f.optString("tipo") == "s"
             val ano = f.optString("ano")
+            if (Remocoes.tituloRemovido(reg.fav, if (serie) "s" else "f", titulo, ano, f.optLong("em"))) continue
             if (atuais.none { it.titulo == titulo && it.serie == serie && it.ano == ano }) {
                 atuais.add(0, VodFavoritos.Item(titulo, serie, f.optString("letra"), ano))
                 mudou = true
@@ -267,9 +304,10 @@ object SincroniaConnect {
 
         val canais = json.optJSONArray("favCanais") ?: JSONArray()
         val favs = lerFavCanais(context, id).toMutableSet()
+        val tirou = favs.removeAll { Remocoes.canalRemovido(reg, it) }
         val antes = favs.size
-        for (i in 0 until canais.length()) canais.optString(i).takeIf { it.isNotBlank() }?.let { favs += it }
-        if (favs.size != antes) Perfis.prefs(context, ARQ_FAV_CANAIS, id).edit().putStringSet("favorites", HashSet(favs)).commit()
+        for (i in 0 until canais.length()) canais.optString(i).takeIf { it.isNotBlank() && !Remocoes.canalRemovido(reg, it) }?.let { favs += it }
+        if (tirou || favs.size != antes) Perfis.prefs(context, ARQ_FAV_CANAIS, id).edit().putStringSet("favorites", HashSet(favs)).commit()
     }
 
 }

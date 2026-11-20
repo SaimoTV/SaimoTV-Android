@@ -101,6 +101,12 @@ object Progresso {
     /** Tira o título do "continuar": é o "remover da fileira" do controle ou do botão ×. */
     fun esquecer(context: Context, andamento: Andamento) {
         val prefs = prefs(context)
+        // A sincronia não traz de volta (Remocoes): título e ano vêm da meta do item.
+        val meta = prefs.getString("m|${andamento.chave}", null)?.split("\t")
+        val titulo = meta?.getOrNull(0)?.takeIf { it.isNotBlank() }
+            ?: if (andamento.serie) Generos.semAno(andamento.nome) else andamento.nome
+        val ano = meta?.getOrNull(3).orEmpty().ifBlank { Regex("\\((\\d{4})\\)\\s*$").find(andamento.nome)?.groupValues?.get(1).orEmpty() }
+        Remocoes.anotarContinuar(context, andamento.serie, titulo, ano)
         val editor = prefs.edit()
         if (andamento.serie) {
             val nome = andamento.nome
