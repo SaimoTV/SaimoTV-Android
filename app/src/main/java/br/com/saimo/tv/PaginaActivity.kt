@@ -63,6 +63,13 @@ open class PaginaActivity : TelaComMenu() {
         private const val COR_KIDS = 0xFF7EE787.toInt()
         private const val COR_NOVELINHAS = 0xFFFF7EB6.toInt()
 
+        /**
+         * A última página montada de cada tipo (e perfil), enquanto o app está
+         * aberto: voltar ao On Demand ou trocar de aba mostra na hora o que já
+         * estava pronto; a montagem nova roda por trás e só troca o que mudou.
+         */
+        private val guardadas = HashMap<String, List<Inicio.Fila>>()
+
         /// Os cartões do topo do On Demand, na ordem em que aparecem.
         private val CATEGORIAS = listOf(
             GradeActivity.FILMES, GradeActivity.SERIES, GradeActivity.ANIMES, GradeActivity.DORAMAS,
@@ -112,6 +119,9 @@ open class PaginaActivity : TelaComMenu() {
         // O menu do topo já diz em que página se está.
         findViewById<TextView>(R.id.paginaNome).visibility = android.view.View.GONE
         destaque.padrao(nome, getString(R.string.vod_carregando))
+        // Depois que a janela já está na tela: antes disso o foco pedido no
+        // primeiro cartão era trocado pelo avatar do perfil.
+        guardadas[chaveDaPagina()]?.let { guardada -> filas.post { if (!montou) mostrar(guardada) } }
         lifecycleScope.launch(semDerrubar) {
             // Abre com o que já está guardado; depois confere a novidade e só
             // remonta a página se o arquivo mudou.
@@ -165,16 +175,16 @@ open class PaginaActivity : TelaComMenu() {
                 if (!todos) {
                     lista += Inicio.Fila(getString(R.string.pagina_explorar), listOf(
                         Inicio.Cartao(getString(R.string.pagina_todos_az), "", "A–Z") {
-                            GradeActivity.abrir(this, tipo)
+                            GradeActivity.abrir(atual(), tipo)
                         }
                     ))
                 } else {
                     lista += Inicio.Fila(getString(R.string.pagina_explorar), listOf(
                         Inicio.Cartao(getString(R.string.vod_filmes), "", "F") {
-                            GradeActivity.abrir(this, GradeActivity.FILMES)
+                            GradeActivity.abrir(atual(), GradeActivity.FILMES)
                         },
                         Inicio.Cartao(getString(R.string.vod_series), "", "S") {
-                            GradeActivity.abrir(this, GradeActivity.SERIES)
+                            GradeActivity.abrir(atual(), GradeActivity.SERIES)
                         },
                     ), Inicio.Tipo.SECAO)
                 }
@@ -191,6 +201,17 @@ open class PaginaActivity : TelaComMenu() {
         }
         esconderVazio()
 
+        // Primeira vez nesta abertura do app: a página aparece já com o que está
+        // à mão (destaques e as contagens da última visita) e o acervo inteiro,
+        // que leva segundos para ler, completa por trás.
+        if (todos && !montou) contagensGuardadas()?.let { quantos ->
+            val rapida = mutableListOf<Inicio.Fila>()
+            rapida += categorias(destaques, quantos, emptyMap()).also { categoriasProntas = it }
+            continuar()?.let { rapida += it }
+            rapida += filasDosDestaques(destaques)
+            mostrar(rapida)
+        }
+
         // As categorias entram já completas: redesenhar a primeira fileira depois
         // de a tela abrir tiraria o foco de quem já está nela.
         val colecoes = if (todos) withContext(Dispatchers.Default) {
@@ -199,27 +220,19 @@ open class PaginaActivity : TelaComMenu() {
                 GradeActivity.NOVELAS to daCategoria(CategoriasVod.NOVELA),
                 GradeActivity.KIDS to daCategoria(CategoriasVod.KIDS))
         } else emptyMap()
-        if (todos) lista += categorias(destaques, contagens(), colecoes).also { categoriasProntas = it }
+        if (todos) {
+            val quantos = withContext(Dispatchers.Default) { contagens() }
+            guardarContagens(quantos)
+            lista += categorias(destaques, quantos, colecoes).also { categoriasProntas = it }
+        }
         continuar()?.let { lista += it }
 
-        // As fileiras do repositório: no On Demand todas, numa página só as do tipo dela.
-        for (fila in destaques) {
-            val itens = when {
-                todos -> fila.itens
-                categoria != null && !colecao -> fila.itens.filter { CategoriasVod.tem(it.titulo, it.serie, categoria!!) }
-                colecao -> fila.itens.filter { it.tipo == letraDe(tipo) || (it.tipo == 's' && CategoriasVod.tem(it.titulo, true, categoria!!)) }
-                else -> fila.itens.filter { it.tipo == letraDe(tipo) }
-            }
-            if (itens.size >= 4) lista += Inicio.Fila(fila.titulo, itens.map { item ->
-                cartao(Alvo(item.titulo, item.serie, item.letra, item.ano,
-                    colecao = if (item.daColecao) item.colecao else ""), item.capa, item.trailer)
-            })
-        }
+        lista += filasDosDestaques(destaques)
         // Numa página de um tipo, o acervo inteiro com filtros (gênero, ano,
         // idade, nota) logo na segunda fileira, sem precisar descer a página toda.
         if (!todos) lista.add(minOf(1, lista.size), Inicio.Fila(getString(R.string.pagina_explorar), listOf(
             Inicio.Cartao(getString(R.string.pagina_todos_az), "", "A–Z") {
-                GradeActivity.abrir(this, tipo)
+                GradeActivity.abrir(atual(), tipo)
             })))
         if (!montou) mostrar(lista)
 
@@ -282,10 +295,40 @@ open class PaginaActivity : TelaComMenu() {
         categoriasProntas?.let { topo ->
             lista += Inicio.Fila(getString(R.string.pagina_explorar), topo.cartoes.zip(tiposDosCartoes).map { (c, t) ->
                 c.copy(titulo = getString(R.string.ondemand_az, c.titulo)) {
-                    if (t == GradeActivity.NOVELINHAS) NovelinhasActivity.abrir(this) else GradeActivity.abrir(this, t)
+                    if (t == GradeActivity.NOVELINHAS) NovelinhasActivity.abrir(atual()) else GradeActivity.abrir(atual(), t)
                 }
             }, Inicio.Tipo.SECAO)
         }
+    }
+
+    /** As fileiras do repositório: no On Demand todas, numa página só as do tipo dela. */
+    private fun filasDosDestaques(destaques: List<Destaques.Fila>): List<Inicio.Fila> = destaques.mapNotNull { fila ->
+        val itens = when {
+            todos -> fila.itens
+            categoria != null && !colecao -> fila.itens.filter { CategoriasVod.tem(it.titulo, it.serie, categoria!!) }
+            colecao -> fila.itens.filter { it.tipo == letraDe(tipo) || (it.tipo == 's' && CategoriasVod.tem(it.titulo, true, categoria!!)) }
+            else -> fila.itens.filter { it.tipo == letraDe(tipo) }
+        }
+        if (itens.size < 4) null else Inicio.Fila(fila.titulo, itens.map { item ->
+            cartao(Alvo(item.titulo, item.serie, item.letra, item.ano,
+                colecao = if (item.daColecao) item.colecao else ""), item.capa, item.trailer)
+        })
+    }
+
+    /** As contagens da última visita (por lista), para a primeira tela não esperar o acervo. */
+    private fun contagensGuardadas(): Map<String, Int>? {
+        val texto = getSharedPreferences("ondemand", MODE_PRIVATE)
+            .getString("contagens@" + Enderecos.filmes.orEmpty(), null) ?: return null
+        return texto.split(";").mapNotNull { par ->
+            val (k, v) = par.split("=").takeIf { it.size == 2 } ?: return@mapNotNull null
+            v.toIntOrNull()?.let { k to it }
+        }.toMap().takeIf { it.isNotEmpty() }
+    }
+
+    private fun guardarContagens(quantos: Map<String, Int>) {
+        getSharedPreferences("ondemand", MODE_PRIVATE).edit()
+            .putString("contagens@" + Enderecos.filmes.orEmpty(), quantos.entries.joinToString(";") { "${it.key}=${it.value}" })
+            .apply()
     }
 
     /** Quantos títulos cada categoria tem; o índice já fica em memória para a busca. */
@@ -370,13 +413,33 @@ open class PaginaActivity : TelaComMenu() {
                 meta = quantos.orEmpty(),
                 sinopse = getString(sobre),
                 fundoDe = primeiro,
-            ) { if (t == GradeActivity.NOVELINHAS) NovelinhasActivity.abrir(this) else PaginaActivity.abrir(this, t) }
+            ) { if (t == GradeActivity.NOVELINHAS) NovelinhasActivity.abrir(atual()) else PaginaActivity.abrir(atual(), t) }
         }, Inicio.Tipo.SECAO)
     }
 
+    private fun chaveDaPagina() = "$tipo@${Perfis.idAtivo()}"
+
+    /**
+     * A tela aberta na hora do clique. Os cartões ficam guardados de uma visita para
+     * a outra (guardadas): a ação não pode presa à tela que os montou, já fechada.
+     */
+    private fun atual(): android.app.Activity =
+        (SaimoApp.atividadeAtual as? PaginaActivity)?.takeIf { !it.isFinishing && !it.isDestroyed } ?: this
+
+    /** O que a pessoa vê de uma página (para não redesenhar à toa a mesma coisa). */
+    private fun assinatura(lista: List<Inicio.Fila>): String =
+        lista.joinToString("|") { f -> f.titulo + ":" + f.cartoes.joinToString(",") { "${it.titulo}/${it.progresso}" } }
+
     private fun mostrar(lista: List<Inicio.Fila>) {
         if (isFinishing || isDestroyed) return
+        // Igual ao que já está na tela (vinda da memória): não redesenha, não tira o foco.
+        val atual = ultimaLista
+        if (montou && atual != null && assinatura(atual) == assinatura(lista)) {
+            guardadas[chaveDaPagina()] = lista.toList()
+            return
+        }
         ultimaLista = lista.toList()
+        guardadas[chaveDaPagina()] = lista.toList()
         adaptador.trocar(lista.toList())
         if (!montou) {
             montou = true
@@ -460,8 +523,8 @@ open class PaginaActivity : TelaComMenu() {
                 a.rotulo, "", a.titulo.take(1).uppercase(), progresso = a.fracao,
                 procurarCapa = a.serie, nomeDaCapa = a.titulo, alvo = alvo,
                 aoMenu = {
-                    Painel.mostrar(this, a.rotulo, listOf(
-                        Painel.Item(getString(R.string.inicio_abrir_ficha), icone = R.drawable.ic_info) { FichaActivity.abrir(this, alvo) },
+                    Painel.mostrar(atual(), a.rotulo, listOf(
+                        Painel.Item(getString(R.string.inicio_abrir_ficha), icone = R.drawable.ic_info) { FichaActivity.abrir(atual(), alvo) },
                         Painel.Item(getString(R.string.inicio_remover_continuar)) {
                             Progresso.esquecer(this, a)
                             lifecycleScope.launch(semDerrubar) { montar() }
@@ -473,7 +536,7 @@ open class PaginaActivity : TelaComMenu() {
                 },
             ) {
                 val (t, e) = if (a.terminado) a.temporada to a.episodio + 1 else a.temporada to a.episodio
-                PlayerActivity.abrir(this, alvo, t, e)
+                PlayerActivity.abrir(atual(), alvo, t, e)
             }
         })
     }
@@ -484,13 +547,13 @@ open class PaginaActivity : TelaComMenu() {
         progresso = if (alvo.serie) null else Progresso.fracao(this, Progresso.chaveFilme(alvo.titulo)),
         alvo = alvo,
         aoMenu = if (alvo.colecao.isNotEmpty()) null else ({
-            val marcado = VodFavoritos.alternar(this, VodFavoritos.Item(alvo.titulo, alvo.serie, alvo.letra, alvo.ano))
-            Toast.makeText(this, if (marcado) R.string.vod_ficha_favorito else R.string.inicio_desfavoritar,
+            val marcado = VodFavoritos.alternar(atual(), VodFavoritos.Item(alvo.titulo, alvo.serie, alvo.letra, alvo.ano))
+            Toast.makeText(atual(), if (marcado) R.string.vod_ficha_favorito else R.string.inicio_desfavoritar,
                 Toast.LENGTH_SHORT).show()
         }),
-    ) { FichaActivity.abrir(this, alvo) }
+    ) { FichaActivity.abrir(atual(), alvo) }
 
     private fun verMais(tipoDaGrade: String, genero: String) = Inicio.Cartao(getString(R.string.pagina_ver_mais), "", "+") {
-        GradeActivity.abrir(this, tipoDaGrade, genero)
+        GradeActivity.abrir(atual(), tipoDaGrade, genero)
     }
 }
