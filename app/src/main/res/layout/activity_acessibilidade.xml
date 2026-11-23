@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Acessibilidade: as opções à esquerda, a prévia à direita. Nada muda no app até Aplicar. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="horizontal"
+    android:paddingStart="64dp"
+    android:paddingTop="40dp"
+    android:paddingEnd="64dp">
+
+    <ScrollView
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:clipToPadding="false"
+        android:paddingBottom="40dp">
+        <LinearLayout
+            android:id="@+id/acessOpcoes"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="sans-serif-medium"
+                android:text="Acessibilidade"
+                android:textColor="@color/text_primary"
+                android:textSize="34dp" />
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:layout_marginBottom="14dp"
+                android:text="Escolha e veja no exemplo ao lado. Nada muda no app até Aplicar."
+                android:textColor="@color/text_secondary"
+                android:textSize="17dp" />
+        </LinearLayout>
+    </ScrollView>
+
+    <!-- A prévia usa tamanhos em dp: quem desenha a escala é a tela (no tamanho escolhido). -->
+    <LinearLayout
+        android:id="@+id/acessPrevia"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="40dp"
+        android:layout_weight="1"
+        android:background="@drawable/item_painel"
+        android:orientation="vertical"
+        android:padding="24dp" />
+</LinearLayout>

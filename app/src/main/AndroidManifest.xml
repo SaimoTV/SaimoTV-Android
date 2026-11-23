@@ -128,6 +128,11 @@
                 android:minWidth="720dp" android:minHeight="405dp" />
         </activity>
         <activity
+            android:name=".AcessibilidadeActivity"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:theme="@style/Theme.Saimo" />
+        <activity
             android:name=".PaginaActivity"
             android:exported="false"
             android:screenOrientation="landscape"

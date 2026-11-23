@@ -63,6 +63,7 @@ class SaimoApp : Application(), SingletonImageLoader.Factory {
             override fun onActivityStarted(activity: android.app.Activity) {}
             override fun onActivityResumed(activity: android.app.Activity) {
                 atividadeAtual = activity
+                TamanhoDaTela.instalarFoco(activity)
                 Camada.instalar(activity)
                 Conta.aoVoltar()
                 Connect.notificarMudancaDeEstado()

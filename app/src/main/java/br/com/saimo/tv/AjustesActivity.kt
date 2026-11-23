@@ -177,7 +177,7 @@ class AjustesActivity : TelaComMenu() {
     private fun categorias(): List<Categoria> = listOfNotNull(
         Categoria(getString(R.string.ajustes_reproducao), "Versão, próximo episódio, qualidade e atraso", ::reproducao),
         Categoria("Legendas", "Tamanho, cor, posição e fundo", ::legendas),
-        Categoria("Aparência e acessibilidade", "Tamanho do texto e brilho da tela", ::aparencia),
+        Categoria("Aparência e acessibilidade", "Tamanho do texto, negrito, foco reforçado e brilho", ::aparencia),
         Categoria("Listas e conteúdo", "Listas, Minhas listas e addons", ::conteudo),
         Categoria(getString(R.string.ajustes_geral), "Perfis, abrir em, timer, celular e estatísticas", ::geral),
         Categoria(getString(R.string.ajustes_sistema), "Atualização, recarregar e dados de uso", ::sistema),
@@ -240,10 +240,11 @@ class AjustesActivity : TelaComMenu() {
     )
 
     private fun aparencia(): List<Linha> = listOf(
-        Opcao("Tamanho do texto", { TamanhoDaTela.nomes[TamanhoDaTela.nivel(this)] }) {
-            escolher("Tamanho do texto", TamanhoDaTela.nomes.indices.toList(), TamanhoDaTela.nivel(this),
-                { TamanhoDaTela.nomes[it] }) { TamanhoDaTela.definir(this, it) }
-        },
+        Opcao("Acessibilidade", {
+            val e = TamanhoDaTela.atual(this)
+            listOfNotNull(TamanhoDaTela.nomes[e.nivel], "negrito".takeIf { e.negrito }, "foco reforçado".takeIf { e.focoForte })
+                .joinToString(" · ") + "  ·  com prévia antes de aplicar"
+        }) { AcessibilidadeActivity.abrir(this) },
         Opcao(getString(R.string.ajustes_brilho), { "${Camada.brilho}%" }) {
             // Em 0 a tela fica preta; qualquer botão traz o brilho de volta devagar.
             escolher(getString(R.string.ajustes_brilho), (100 downTo 0 step 10).toList(), Camada.brilho,
