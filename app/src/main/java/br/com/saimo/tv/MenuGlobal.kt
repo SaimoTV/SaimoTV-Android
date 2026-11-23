@@ -37,9 +37,8 @@ object MenuGlobal {
 
     fun criar(tela: Activity, atual: Aba, aoFocar: (() -> Unit)? = null, aoInicio: (() -> Unit)? = null): View {
         val d = tela.resources.displayMetrics.density
-        // Acessibilidade: o menu cresce junto com o texto (até 1,3x, para as dez abas
-        // caberem) e, ampliado, as abas ficam só com texto para sobrar espaço.
-        val k = minOf(TamanhoDaTela.escalas[TamanhoDaTela.nivel(tela)], 1.3f)
+        // Acessibilidade: o menu cresce junto com o texto (até 1,45x) e, ampliado, as abas ficam só com texto para sobrar espaço.
+        val k = TamanhoDaTela.escalas[TamanhoDaTela.nivel(tela)]
         val ampliado = k > 1f
         val barra = LinearLayout(tela).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -112,7 +111,7 @@ object MenuGlobal {
                 layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginEnd = (1 * d).toInt() }
                 when {
-                    aba == Aba.AJUSTES -> Icones.so(this, icone, 1.4f * k)
+                    aba == Aba.AJUSTES -> Icones.so(this, icone)
                     icone != 0 && !ampliado -> Icones.inicio(this, icone)
                 }
                 setOnFocusChangeListener { _, foco -> if (foco) aoFocar?.invoke() }
