@@ -205,7 +205,7 @@ Desde a 3.3.6 a TV Box não leva o motor de torrent (era metade do APK: 10 MB pa
 
 ## Ajustes e acessibilidade
 
-Os Ajustes abrem com os grupos (Reprodução, Legendas, Aparência e acessibilidade, Listas e conteúdo, Geral, Sistema, Controle parental); OK entra, VOLTAR volta ao mesmo lugar (`AjustesActivity`). Aparência e acessibilidade > Acessibilidade (`AcessibilidadeActivity`, `TamanhoDaTela.kt`): tamanho do texto (Normal, Grande, Muito grande, Enorme: fontScale da tela), texto em negrito (Android 12+, `fontWeightAdjustment`) e foco reforçado (contorno amarelo desenhado por cima de qualquer tela). Cada OK muda só a prévia ao lado; Aplicar leva ao app e recria as telas abertas. O menu do topo fica em tamanho fixo para sempre caber.
+Os Ajustes abrem com os grupos (Reprodução, Legendas, Aparência e acessibilidade, Listas e conteúdo, Geral, Sistema, Controle parental); OK entra, VOLTAR volta ao mesmo lugar (`AjustesActivity`). Aparência e acessibilidade > Acessibilidade (`AcessibilidadeActivity`, `TamanhoDaTela.kt`): tamanho do texto (Normal, Grande, Muito grande, Enorme: fontScale da tela), texto em negrito (Android 12+, `fontWeightAdjustment`) e foco reforçado (contorno amarelo desenhado por cima de qualquer tela). Cada OK muda só a prévia ao lado; Aplicar leva ao app e recria as telas abertas. O menu do topo cresce junto (até 1,3x, `MenuGlobal.kt`); ampliado, as abas ficam só com texto para as dez caberem.
 
 On Demand: a página montada fica em memória (`PaginaActivity.guardadas`) e reaparece na hora ao trocar de aba; a primeira visita usa as contagens guardadas da última vez e completa o acervo por trás. Memória apertada esquece as páginas guardadas.
 
