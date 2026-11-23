@@ -37,6 +37,10 @@ object MenuGlobal {
 
     fun criar(tela: Activity, atual: Aba, aoFocar: (() -> Unit)? = null, aoInicio: (() -> Unit)? = null): View {
         val d = tela.resources.displayMetrics.density
+        // Acessibilidade: o menu cresce junto com o texto (até 1,3x, para as dez abas
+        // caberem) e, ampliado, as abas ficam só com texto para sobrar espaço.
+        val k = minOf(TamanhoDaTela.escalas[TamanhoDaTela.nivel(tela)], 1.3f)
+        val ampliado = k > 1f
         val barra = LinearLayout(tela).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -55,7 +59,7 @@ object MenuGlobal {
                     cornerRadius = 9 * d; setStroke((2 * d).toInt(), android.graphics.Color.WHITE)
                 })
             }
-            layoutParams = LinearLayout.LayoutParams((32 * d).toInt(), (32 * d).toInt()).apply { marginEnd = (6 * d).toInt() }
+            layoutParams = LinearLayout.LayoutParams((32 * k * d).toInt(), (32 * k * d).toInt()).apply { marginEnd = (6 * d).toInt() }
             mostrarPerfil(this)
             setOnFocusChangeListener { v, foco ->
                 v.animate().scaleX(if (foco) 1.12f else 1f).scaleY(if (foco) 1.12f else 1f).setDuration(120).start()
@@ -94,7 +98,7 @@ object MenuGlobal {
                 text = tela.getString(texto)
                 tag = aba
                 // Dez abas com a Apoie: tamanho e folga medidos para caber em 960 dp.
-                setTextSize(android.util.TypedValue.COMPLEX_UNIT_DIP, 15f) // o menu não cresce com o "Tamanho do texto": cabe sempre
+                setTextSize(android.util.TypedValue.COMPLEX_UNIT_DIP, 15f * k) // dip: segue a escala própria do menu, não o fontScale
                 maxLines = 1
                 typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
                 setTextColor(ContextCompat.getColorStateList(tela, R.color.texto_botao_ficha))
@@ -108,8 +112,8 @@ object MenuGlobal {
                 layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginEnd = (1 * d).toInt() }
                 when {
-                    aba == Aba.AJUSTES -> Icones.so(this, icone)
-                    icone != 0 -> Icones.inicio(this, icone)
+                    aba == Aba.AJUSTES -> Icones.so(this, icone, 1.4f * k)
+                    icone != 0 && !ampliado -> Icones.inicio(this, icone)
                 }
                 setOnFocusChangeListener { _, foco -> if (foco) aoFocar?.invoke() }
                 // Para os lados, o menu anda de aba em aba e para nas pontas:
@@ -134,7 +138,7 @@ object MenuGlobal {
         }
 
         val relogio = TextView(tela).apply {
-            setTextSize(android.util.TypedValue.COMPLEX_UNIT_DIP, 18f)
+            setTextSize(android.util.TypedValue.COMPLEX_UNIT_DIP, 18f * k)
             setTextColor(ContextCompat.getColor(tela, R.color.text_primary))
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = (12 * d).toInt() }
