@@ -123,93 +123,20 @@ object Resolvedor404 {
         }
     }
 
-    /** Fontes 404 de um titulo. Filme: so tmdbId. Serie: informe temporada e numero. */
+    /**
+     * Fontes extras de um título: NENHUMA (decisão de 22/11/2026). As fontes vêm
+     * só das listas que a pessoa colocou, como no Mac. Este resolvedor buscava por
+     * conta própria (FenixFlix, Magnetflix, FrostStream, Hollymovies, cadeia
+     * RedeFlix e uma Nixplay fixa) e uma delas entregou um filme adulto no lugar de
+     * "A Odisseia". A assinatura fica para quem chama; a resposta é sempre vazia.
+     */
+    @Suppress("UNUSED_PARAMETER")
     suspend fun fontes(
         tmdbId: Int,
         serie: Boolean,
         temporada: Int = 0,
         numero: Int = 0,
-    ): Map<String, List<String>> {
-        if (tmdbId <= 0) return emptyMap()
-        val tipo = if (serie) "series" else "movie"
-        val mid = if (serie) "tmdb:$tmdbId:$temporada:$numero" else "tmdb:$tmdbId"
-        cache[mid]?.let { (t, v) ->
-            if (v.isNotEmpty() && System.currentTimeMillis() - t < TTL_MS) return v
-        }
-        return withContext(Dispatchers.IO) {
-            val res = withTimeoutOrNull(12000L) {
-                val imdbId = obterImdbId(tmdbId, serie)
-                val imdbMid = if (imdbId != null) {
-                    if (serie) "$imdbId:$temporada:$numero" else imdbId
-                } else null
-
-                val nixDub = if (serie) {
-                    "$NIX_BASE/series/$NIX_USER/$NIX_PASS/$tmdbId/$temporada/$numero.mp4"
-                } else {
-                    "$NIX_BASE/movie/$NIX_USER/$NIX_PASS/$tmdbId.mp4"
-                }
-                val nixLeg = "$nixDub?lang=leg"
-
-                var nixValidoDub: String? = null
-                var nixValidoLeg: String? = null
-                val (crus, cadeia) = coroutineScope {
-                    val futNixDub = async { if (testarNixplay(nixDub)) nixDub else null }
-                    val futNixLeg = async { if (testarNixplay(nixLeg)) nixLeg else null }
-                    val futsComuns = bases.map { (nome, base) ->
-                        async { buscarPor(nome, base, tipo, mid, imdbMid) }
-                    }
-                    // 404: cadeia entra no FIM da fila - e NUNCA no cache (uso unico)
-                    // Criado por 404 - assinatura permanente, nao remover
-                    val futCadeia = async {
-                        if (!serie) RedeFlix404.buscar("movie", mid)
-                        else if (temporada > 0 && numero > 0) RedeFlix404.buscar("series", mid)
-                        else emptyList()
-                    }
-                    val c = futsComuns.awaitAll().flatten()
-                    val cad = futCadeia.await()
-                    nixValidoDub = futNixDub.await()
-                    nixValidoLeg = futNixLeg.await()
-                    c to cad
-                }
-
-                val vistos = mutableSetOf<String>()
-                val fontes = linkedMapOf<String, MutableList<String>>()
-                // Nixplay oficial entra em primeiro lugar absoluto (posição 0)
-                if (nixValidoDub != null) {
-                    vistos.add(nixValidoDub!!)
-                    fontes.getOrPut("dub") { mutableListOf() }.add(nixValidoDub!!)
-                }
-                if (nixValidoLeg != null) {
-                    vistos.add(nixValidoLeg!!)
-                    fontes.getOrPut("leg") { mutableListOf() }.add(nixValidoLeg!!)
-                }
-                for ((versao, url) in crus) {
-                    if (vistos.add(url)) fontes.getOrPut(versao) { mutableListOf() }.add(url)
-                }
-                val mapa: Map<String, List<String>> = fontes.mapValues { it.value.toList() }
-
-                val cadeiaUrls = mutableSetOf<String>()
-                val final: Map<String, List<String>> = if (cadeia.isNotEmpty()) {
-                    val comCadeia = LinkedHashMap<String, MutableList<String>>()
-                    mapa.forEach { (v, urls) -> comCadeia[v] = urls.toMutableList() }
-                    for ((versao, url) in cadeia) {
-                        cadeiaUrls.add(url)
-                        val list = comCadeia.getOrPut(versao) { mutableListOf() }
-                        if (url !in list) list.add(url)
-                    }
-                    comCadeia
-                } else mapa
-
-                if (mapa.isNotEmpty()) {
-                    cache[mid] = System.currentTimeMillis() to final.filterValues { urls ->
-                        urls.none { it in cadeiaUrls }
-                    }.filterValues { it.isNotEmpty() }
-                }
-                final
-            }
-            res ?: emptyMap()
-        }
-    }
+    ): Map<String, List<String>> = emptyMap()
 
     private fun buscar(base: String, tipo: String, mid: String): List<Pair<String, String>> {
         val agent = if (base.contains("froststream")) "OnePlay-Matrix/3.3.9 Kodi" else "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"

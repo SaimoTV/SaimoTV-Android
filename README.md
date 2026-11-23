@@ -436,3 +436,7 @@ Remoções (3.3.3): o que sai do Continuar assistindo, dos favoritos e das Minha
 ## Ajustes da 3.3.4
 
 - **On Demand com cache**: `Destaques` abre com a cópia em disco (qualquer idade) e a página confere a novidade por trás (`Destaques.novidades`), remontando só se o arquivo mudou.
+
+## Fontes só das listas (22/11/2026)
+
+Filmes e séries só têm as fontes que vêm das listas colocadas pela pessoa (como no Mac). `Resolvedor404.fontes` não busca mais nada por conta própria e devolve vazio: antes consultava FenixFlix, Magnetflix, FrostStream, Hollymovies, a cadeia RedeFlix e uma Nixplay fixa pelo número do TMDB (chegou a mostrar 15 fontes, uma delas um filme adulto no lugar do título). Novelinhas não mudam.
