@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Os avatares dos perfis são achados pelo nome (getIdentifier "avatar_<id>"):
+     sem isto o encolhedor de recursos do build release apagava todos e os perfis
+     ficavam sem imagem. -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/avatar_*" />
