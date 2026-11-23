@@ -67,14 +67,6 @@ android {
         }
     }
 
-    packaging {
-        jniLibs {
-            // O motor de torrent (libsaimotorrent.so) é um executável: precisa
-            // ser extraído para a pasta de bibliotecas nativas para rodar.
-            useLegacyPackaging = true
-        }
-    }
-
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

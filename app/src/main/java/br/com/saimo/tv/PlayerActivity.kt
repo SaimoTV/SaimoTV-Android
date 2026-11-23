@@ -177,7 +177,6 @@ class PlayerActivity : AppCompatActivity(), Connect.Listener {
     /** Alguma fonte deste título respondeu que o vídeo não existe ainda. */
     private var semVideo = false
     /** Tocou algo pelo motor de torrent: ao fechar, apaga o que baixou. */
-    private var usouTorrent = false
     /** Logo (ou capa) do título que está tocando: vai para o celular no Saimo Connect. */
     private var imagemDoTitulo: String? = null
     /** Com o filme tocando, a posição vai para o celular a cada 5 s (como no Mac e no Windows). */
@@ -725,31 +724,8 @@ class PlayerActivity : AppCompatActivity(), Connect.Listener {
             return
         }
 
-        // Torrent (`infoHash`): com Debrid ativo, vai pelo Debrid (mais rápido);
-        // sem Debrid, toca pelo motor de torrent embutido, como o Stremio.
-        if (opcao.ehTorrent && !opcao.infoHash.isNullOrBlank() && !DebridStore.temAlgumAtivo() &&
-            MotorTorrent.disponivel(this)
-        ) {
-            mostrarCarregando("Conectando ao torrent…")
-            Telemetria.comecou("vod", nomeTelemetria(), "magnet:${opcao.infoHash}", fonte + 1, nova = tentadas.isEmpty())
-            selecionarLegendaExt = legendaExt != null
-            val tentativa = tentativaDesde
-            usouTorrent = true
-            lifecycleScope.launch(semDerrubar) {
-                val destino = runCatching {
-                    MotorTorrent.enderecoPara(this@PlayerActivity, opcao.infoHash, opcao.fileIdx, opcao.trackerSources, alvo.titulo)
-                }.getOrNull()
-                if (tentativa != tentativaDesde || player !== atual) return@launch
-                if (destino == null) {
-                    proximaFonte(inicio)
-                    return@launch
-                }
-                // Achar pares e baixar o começo leva mais que um link comum.
-                handler.postDelayed(prazo, PRAZO_MS * 4)
-                iniciarFonte(atual, destino, inicio, pausado)
-            }
-            return
-        }
+        // Torrent sem Debrid não toca na TV Box (o motor de torrent saiu do APK
+        // para deixá-lo leve): a opção segue para a próxima fonte, abaixo.
         if (opcao.ehTorrent && !opcao.infoHash.isNullOrBlank()) {
             if (!DebridStore.temAlgumAtivo()) {
                 val temOutraJogavel = opcoes.indices.any {
@@ -1760,7 +1736,6 @@ class PlayerActivity : AppCompatActivity(), Connect.Listener {
         player?.let { AudioInteligente.liberar(it) }
         player?.release()
         player = null
-        if (usouTorrent) MotorTorrent.limpar()
         super.onDestroy()
     }
 
