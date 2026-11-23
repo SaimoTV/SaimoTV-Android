@@ -70,6 +70,9 @@ open class PaginaActivity : TelaComMenu() {
          */
         private val guardadas = HashMap<String, List<Inicio.Fila>>()
 
+        /** Memória apertada ou app em segundo plano: a próxima visita monta de novo. */
+        fun esquecerGuardadas() = guardadas.clear()
+
         /// Os cartões do topo do On Demand, na ordem em que aparecem.
         private val CATEGORIAS = listOf(
             GradeActivity.FILMES, GradeActivity.SERIES, GradeActivity.ANIMES, GradeActivity.DORAMAS,
@@ -147,6 +150,25 @@ open class PaginaActivity : TelaComMenu() {
             else -> return
         }
         mostrar(lista)
+    }
+
+    /**
+     * Tira do "continuar assistindo" e refaz a página aberta agora: o cartão pode
+     * ter vindo da memória (guardadas), montado por uma tela que já fechou.
+     */
+    private fun tirarDoContinuar(a: Progresso.Andamento) {
+        val tela = (atual() as? PaginaActivity) ?: this
+        Progresso.esquecer(tela, a)
+        tela.lifecycleScope.launch(semDerrubar) { tela.montar() }
+    }
+
+    override fun onDestroy() {
+        // Os cartões guardados seguram esta tela até a próxima visita ao mesmo
+        // tipo de página: sem as vistas e as imagens, ela fica leve (só os dados).
+        filas.adapter = null
+        filas.recycledViewPool.clear()
+        findViewById<ImageView>(R.id.inicioFundo)?.setImageDrawable(null)
+        super.onDestroy()
     }
 
     /** O que está na tela, para a volta não refazer tudo. */
@@ -525,15 +547,9 @@ open class PaginaActivity : TelaComMenu() {
                 aoMenu = {
                     Painel.mostrar(atual(), a.rotulo, listOf(
                         Painel.Item(getString(R.string.inicio_abrir_ficha), icone = R.drawable.ic_info) { FichaActivity.abrir(atual(), alvo) },
-                        Painel.Item(getString(R.string.inicio_remover_continuar)) {
-                            Progresso.esquecer(this, a)
-                            lifecycleScope.launch(semDerrubar) { montar() }
-                        }))
+                        Painel.Item(getString(R.string.inicio_remover_continuar)) { tirarDoContinuar(a) }))
                 },
-                aoRemover = {
-                    Progresso.esquecer(this, a)
-                    lifecycleScope.launch(semDerrubar) { montar() }
-                },
+                aoRemover = { tirarDoContinuar(a) },
             ) {
                 val (t, e) = if (a.terminado) a.temporada to a.episodio + 1 else a.temporada to a.episodio
                 PlayerActivity.abrir(atual(), alvo, t, e)

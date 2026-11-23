@@ -122,6 +122,7 @@ class SaimoApp : Application(), SingletonImageLoader.Factory {
         if (level >= TRIM_MEMORY_UI_HIDDEN || level == TRIM_MEMORY_RUNNING_LOW || level == TRIM_MEMORY_RUNNING_CRITICAL) {
             runCatching { SingletonImageLoader.get(this).memoryCache?.clear() }
             Memoria.liberar()
+            if (level != TRIM_MEMORY_UI_HIDDEN) PaginaActivity.esquecerGuardadas()
         }
         // O guia só sai com o app de fato em segundo plano: o Ao vivo na
         // frente o usa a cada troca de canal.
