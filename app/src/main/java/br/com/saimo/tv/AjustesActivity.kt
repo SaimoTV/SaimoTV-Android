@@ -42,6 +42,14 @@ class AjustesActivity : TelaComMenu() {
     private data class Secao(val nome: String) : Linha
     private data class Opcao(val nome: String, val valor: () -> String, val destaque: Boolean = false, val acao: () -> Unit) : Linha
 
+    /** Um grupo de ajustes: a tela abre com a lista deles e OK entra em um. */
+    private class Categoria(val nome: String, val sobre: String, val itens: () -> List<Linha>)
+
+    /** O grupo aberto (nulo = a lista de grupos). */
+    private var aberta: Categoria? = null
+    /** Linha do grupo na lista de grupos, para o foco voltar a ela. */
+    private var posicaoDaCategoria = RecyclerView.NO_POSITION
+
     private lateinit var lista: RecyclerView
     private val adaptador = Adaptador()
     private val atualizacao by lazy { OfertaDeAtualizacao(this) { Toast.makeText(this, it, Toast.LENGTH_SHORT).show() } }
@@ -89,8 +97,20 @@ class AjustesActivity : TelaComMenu() {
         lista = findViewById(R.id.ajustesLista)
         lista.layoutManager = LinearLayoutManager(this)
         lista.adapter = adaptador
+        // Recriada (ex.: depois de trocar o tamanho do texto): volta ao mesmo grupo.
+        savedInstanceState?.getString("ajustes.grupo")?.let { nome -> aberta = categorias().firstOrNull { it.nome == nome } }
+        posicaoDaCategoria = savedInstanceState?.getInt("ajustes.posGrupo", RecyclerView.NO_POSITION) ?: RecyclerView.NO_POSITION
         adaptador.linhas = linhas()
-        focarQuandoPronto { lista.findViewHolderForAdapterPosition(1)?.itemView }
+        focarQuandoPronto { lista.findViewHolderForAdapterPosition(if (aberta != null) 1 else 0)?.itemView }
+        // VOLTAR dentro de um grupo volta à lista de grupos, no mesmo lugar.
+        onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (aberta != null) { fecharCategoria(); return }
+                isEnabled = false
+                onBackPressedDispatcher.onBackPressed()
+                isEnabled = true
+            }
+        })
         // No perfil Kids os Ajustes pedem o código: a criança não mexe nas listas nem nos ajustes.
         val perfil = Perfis.ativo()
         if (savedInstanceState == null && Perfis.pedeCodigo(perfil)) {
@@ -100,6 +120,12 @@ class AjustesActivity : TelaComMenu() {
                     if (Perfis.conferirCodigo(perfil, v[0])) { lista.visibility = android.view.View.VISIBLE; null } else "Código errado. Tente de novo."
                 }, aoCancelar = { finish() })
         }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        aberta?.let { outState.putString("ajustes.grupo", it.nome) }
+        outState.putInt("ajustes.posGrupo", posicaoDaCategoria)
     }
 
     override fun onResume() {
@@ -123,11 +149,42 @@ class AjustesActivity : TelaComMenu() {
         else -> "Desligado"
     }
 
-    private fun linhas(): List<Linha> = listOf(
-        // Conta Saimo (opcional): primeira opção, em destaque enquanto não há conta. No Kids não aparece.
-        *(if (Kids.ativo()) emptyArray() else arrayOf<Linha>(
-            Opcao("Conta Saimo", { ContaTela.resumo() }, destaque = !Conta.logado) { ContaTela.abrir(this) { redesenhar() } })),
-        Secao(getString(R.string.ajustes_reproducao)),
+    private fun linhas(): List<Linha> {
+        aberta?.let { c -> return listOf<Linha>(Secao(c.nome)) + c.itens() }
+        return listOf<Linha>(
+            // Conta Saimo (opcional): primeira opção, em destaque enquanto não há conta. No Kids não aparece.
+            *(if (Kids.ativo()) emptyArray() else arrayOf<Linha>(
+                Opcao("Conta Saimo", { ContaTela.resumo() }, destaque = !Conta.logado) { ContaTela.abrir(this) { redesenhar() } })),
+        ) + categorias().map { c -> Opcao(c.nome, { c.sobre }) { abrirCategoria(c) } }
+    }
+
+    private fun abrirCategoria(c: Categoria) {
+        posicaoDaCategoria = lista.focusedChild?.let { lista.getChildAdapterPosition(it) } ?: RecyclerView.NO_POSITION
+        aberta = c
+        adaptador.linhas = linhas()
+        lista.scrollToPosition(0)
+        focarQuandoPronto { lista.findViewHolderForAdapterPosition(1)?.itemView }
+    }
+
+    private fun fecharCategoria() {
+        aberta = null
+        adaptador.linhas = linhas()
+        val alvo = posicaoDaCategoria.takeIf { it != RecyclerView.NO_POSITION } ?: 0
+        lista.scrollToPosition(alvo)
+        focarQuandoPronto { lista.findViewHolderForAdapterPosition(alvo)?.itemView }
+    }
+
+    private fun categorias(): List<Categoria> = listOfNotNull(
+        Categoria(getString(R.string.ajustes_reproducao), "Versão, próximo episódio, qualidade e atraso", ::reproducao),
+        Categoria("Legendas", "Tamanho, cor, posição e fundo", ::legendas),
+        Categoria("Aparência e acessibilidade", "Tamanho do texto e brilho da tela", ::aparencia),
+        Categoria("Listas e conteúdo", "Listas, Minhas listas e addons", ::conteudo),
+        Categoria(getString(R.string.ajustes_geral), "Perfis, abrir em, timer, celular e estatísticas", ::geral),
+        Categoria(getString(R.string.ajustes_sistema), "Atualização, recarregar e dados de uso", ::sistema),
+        if (Kids.ativo()) null else Categoria("Controle parental", "Conteúdo adulto e senha", ::controleParental),
+    )
+
+    private fun reproducao(): List<Linha> = listOf(
         Opcao(getString(R.string.ajustes_versao), { Titulos.rotulo(Preferencias.versao) }) {
             escolher(getString(R.string.ajustes_versao), listOf("dub", "leg"), Preferencias.versao,
                 { Titulos.rotulo(it) }) { Preferencias.versao = it }
@@ -137,21 +194,6 @@ class AjustesActivity : TelaComMenu() {
         },
         Opcao(getString(R.string.ajustes_pular), { simNao(Preferencias.pularAutomatico) }) {
             Preferencias.pularAutomatico = !Preferencias.pularAutomatico; redesenhar()
-        },
-        Opcao(getString(R.string.player_tamanho_legenda),
-            { resources.getStringArray(R.array.tamanhos_legenda)[Preferencias.legenda.coerceIn(0, 3)] }) {
-            val nomes = resources.getStringArray(R.array.tamanhos_legenda)
-            escolher(getString(R.string.player_tamanho_legenda), nomes.indices.toList(), Preferencias.legenda,
-                { nomes[it] }) { Preferencias.legenda = it }
-        },
-        Opcao("Cor da legenda", { listOf("Branca", "Amarela", "Ciano", "Verde")[Preferencias.legendaCor] }) {
-            Preferencias.legendaCor = (Preferencias.legendaCor + 1) % 4; redesenhar()
-        },
-        Opcao("Posição da legenda", { listOf("Baixa", "Média", "Alta")[Preferencias.legendaPosicao] }) {
-            Preferencias.legendaPosicao = (Preferencias.legendaPosicao + 1) % 3; redesenhar()
-        },
-        Opcao(getString(R.string.ajustes_legenda_fundo), { simNao(Preferencias.legendaFundo) }) {
-            Preferencias.legendaFundo = !Preferencias.legendaFundo; redesenhar()
         },
         Opcao(getString(R.string.ajustes_economia), { simNao(Preferencias.economia) }) {
             Preferencias.economia = !Preferencias.economia; redesenhar()
@@ -177,17 +219,41 @@ class AjustesActivity : TelaComMenu() {
                 { rotuloUpscaling(it) }
             ) { Preferencias.upscaling = it }
         },
+    )
 
-        Secao(getString(R.string.ajustes_geral)),
-        Opcao("Estatísticas", { Estatisticas.texto(this) }) { },
-        Opcao("Séries favoritas com episódio novo", { NovosEpisodios.resumo(this) }) { NovosEpisodios.dispensarTodos(this); redesenhar() },
-        // Perfis: cada um com os seus favoritos, onde parou e recentes.
-        Opcao("Perfis", {
-            val n = Perfis.todos().size
-            if (n == 1) "Só um perfil. Criar, editar e escolher avatares" else "${Perfis.ativo().nome} · $n perfis"
-        }) {
-            PerfisActivity.abrir(this, gerenciar = true)
+    private fun legendas(): List<Linha> = listOf(
+        Opcao(getString(R.string.player_tamanho_legenda),
+            { resources.getStringArray(R.array.tamanhos_legenda)[Preferencias.legenda.coerceIn(0, 3)] }) {
+            val nomes = resources.getStringArray(R.array.tamanhos_legenda)
+            escolher(getString(R.string.player_tamanho_legenda), nomes.indices.toList(), Preferencias.legenda,
+                { nomes[it] }) { Preferencias.legenda = it }
         },
+        Opcao("Cor da legenda", { listOf("Branca", "Amarela", "Ciano", "Verde")[Preferencias.legendaCor] }) {
+            Preferencias.legendaCor = (Preferencias.legendaCor + 1) % 4; redesenhar()
+        },
+        Opcao("Posição da legenda", { listOf("Baixa", "Média", "Alta")[Preferencias.legendaPosicao] }) {
+            Preferencias.legendaPosicao = (Preferencias.legendaPosicao + 1) % 3; redesenhar()
+        },
+        Opcao(getString(R.string.ajustes_legenda_fundo), { simNao(Preferencias.legendaFundo) }) {
+            Preferencias.legendaFundo = !Preferencias.legendaFundo; redesenhar()
+        },
+    )
+
+    private fun aparencia(): List<Linha> = listOf(
+        Opcao("Tamanho do texto", { TamanhoDaTela.nomes[TamanhoDaTela.nivel(this)] }) {
+            escolher("Tamanho do texto", TamanhoDaTela.nomes.indices.toList(), TamanhoDaTela.nivel(this),
+                { TamanhoDaTela.nomes[it] }) { TamanhoDaTela.definir(this, it) }
+        },
+        Opcao(getString(R.string.ajustes_brilho), { "${Camada.brilho}%" }) {
+            // Em 0 a tela fica preta; qualquer botão traz o brilho de volta devagar.
+            escolher(getString(R.string.ajustes_brilho), (100 downTo 0 step 10).toList(), Camada.brilho,
+                { if (it == 0) "0% (tela apagada: qualquer botão volta)" else if (it == 100) "100% (normal)" else "$it%" }) {
+                Camada.brilho = it
+            }
+        },
+    )
+
+    private fun conteudo(): List<Linha> = listOf(
         Opcao(getString(R.string.ajustes_listas), { Listas.resumo(this) }) {
             ListasDialogo.mostrar(this) { redesenhar() }
         },
@@ -197,19 +263,23 @@ class AjustesActivity : TelaComMenu() {
         Opcao(getString(R.string.ajustes_addons), { AddonsStore.resumo() }) {
             AddonsTela.abrir(this)
         },
+        Opcao("Séries favoritas com episódio novo", { NovosEpisodios.resumo(this) }) { NovosEpisodios.dispensarTodos(this); redesenhar() },
+    )
+
+    private fun geral(): List<Linha> = listOf(
+        // Perfis: cada um com os seus favoritos, onde parou e recentes.
+        Opcao("Perfis", {
+            val n = Perfis.todos().size
+            if (n == 1) "Só um perfil. Criar, editar e escolher avatares" else "${Perfis.ativo().nome} · $n perfis"
+        }) {
+            PerfisActivity.abrir(this, gerenciar = true)
+        },
         Opcao(getString(R.string.ajustes_abrir_em), {
             getString(if (Preferencias.abrirEm == "canal") R.string.ajustes_abrir_canal else R.string.ajustes_abrir_inicio)
         }) {
             escolher(getString(R.string.ajustes_abrir_em), listOf("inicio", "canal"), Preferencias.abrirEm,
                 { getString(if (it == "canal") R.string.ajustes_abrir_canal else R.string.ajustes_abrir_inicio) }) {
                 Preferencias.abrirEm = it
-            }
-        },
-        Opcao(getString(R.string.ajustes_brilho), { "${Camada.brilho}%" }) {
-            // Em 0 a tela fica preta; qualquer botão traz o brilho de volta devagar.
-            escolher(getString(R.string.ajustes_brilho), (100 downTo 0 step 10).toList(), Camada.brilho,
-                { if (it == 0) "0% (tela apagada: qualquer botão volta)" else if (it == 100) "100% (normal)" else "$it%" }) {
-                Camada.brilho = it
             }
         },
         Opcao(getString(R.string.ajustes_timer), {
@@ -221,7 +291,6 @@ class AjustesActivity : TelaComMenu() {
                 TimerDeSono.ligar(it)
             }
         },
-
         Opcao(getString(R.string.ajustes_connect), { getString(R.string.ajustes_connect_n, Connect.quantosAutorizados()) }) {
             Painel.mostrar(this, getString(R.string.ajustes_connect), listOf(
                 Painel.Item("Endereço e PIN", "${Connect.obterIpLocal()} · PIN ${Connect.pinAtual}") {},
@@ -236,20 +305,21 @@ class AjustesActivity : TelaComMenu() {
                 }
             ))
         },
+        Opcao("Estatísticas", { Estatisticas.texto(this) }) { },
+    )
 
-        Secao(getString(R.string.ajustes_sistema)),
+    private fun sistema(): List<Linha> = listOf(
         Opcao(getString(R.string.ajustes_atualizar), { "v${BuildConfig.VERSION_NAME}" }) { procurarVersao() },
         Opcao(getString(R.string.ajustes_recarregar), { getString(R.string.ajustes_recarregar_dica) }) { recarregar() },
         Opcao(getString(R.string.ajustes_telemetria), { simNao(Preferencias.telemetria) }) {
             Preferencias.telemetria = !Preferencias.telemetria; redesenhar()
         },
-    ) + controleParental()
+    )
 
     /** Controle parental: no fim, separado e discreto. No perfil Kids não aparece. */
     private fun controleParental(): List<Linha> {
         if (Kids.ativo()) return emptyList()
         return listOf(
-            Secao("Controle parental"),
             Opcao("Conteúdo adulto", { if (Unlock.unlocked) "Liberado (OK bloqueia)" else "Bloqueado" }) {
                 if (Unlock.unlocked) { Unlock.bloquear(); redesenhar(); return@Opcao }
                 val dica = "Digite a senha do controle parental."

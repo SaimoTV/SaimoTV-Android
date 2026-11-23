@@ -43,12 +43,23 @@ class SaimoApp : Application(), SingletonImageLoader.Factory {
     companion object {
         var atividadeAtual: android.app.Activity? = null
             private set
+
+        /** As telas com menu abertas (para valer na hora um ajuste de aparência). */
+        private val abertas = java.util.Collections.newSetFromMap(java.util.WeakHashMap<android.app.Activity, Boolean>())
+
+        /** Recria as telas com menu; os players pegam o ajuste na próxima abertura. */
+        fun recriarTodas() {
+            abertas.toList().filter { it is TelaComMenu || it is PerfisActivity }
+                .filter { !it.isFinishing && !it.isDestroyed }.forEach { it.recreate() }
+        }
     }
 
     override fun onCreate() {
         super.onCreate()
         registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
-            override fun onActivityCreated(activity: android.app.Activity, savedInstanceState: android.os.Bundle?) {}
+            override fun onActivityCreated(activity: android.app.Activity, savedInstanceState: android.os.Bundle?) {
+                abertas += activity
+            }
             override fun onActivityStarted(activity: android.app.Activity) {}
             override fun onActivityResumed(activity: android.app.Activity) {
                 atividadeAtual = activity
@@ -67,6 +78,7 @@ class SaimoApp : Application(), SingletonImageLoader.Factory {
             }
             override fun onActivitySaveInstanceState(activity: android.app.Activity, outState: android.os.Bundle) {}
             override fun onActivityDestroyed(activity: android.app.Activity) {
+                abertas -= activity
                 if (atividadeAtual === activity) {
                     atividadeAtual = null
                 }

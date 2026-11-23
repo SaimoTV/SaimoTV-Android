@@ -93,6 +93,11 @@ private const val CONGELADO_MS = 12_000L
 @UnstableApi
 class MainActivity : AppCompatActivity(), Connect.Listener, Painel.Ouvinte {
 
+    override fun attachBaseContext(base: android.content.Context) {
+        super.attachBaseContext(TamanhoDaTela.envolver(base))
+    }
+
+
     companion object {
         /** Nome do canal a sintonizar ao abrir (link saimo://canal). */
         const val EXTRA_CANAL = "br.com.saimo.tv.CANAL"

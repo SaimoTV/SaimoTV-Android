@@ -94,7 +94,7 @@ object MenuGlobal {
                 text = tela.getString(texto)
                 tag = aba
                 // Dez abas com a Apoie: tamanho e folga medidos para caber em 960 dp.
-                textSize = 15f
+                setTextSize(android.util.TypedValue.COMPLEX_UNIT_DIP, 15f) // o menu não cresce com o "Tamanho do texto": cabe sempre
                 maxLines = 1
                 typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
                 setTextColor(ContextCompat.getColorStateList(tela, R.color.texto_botao_ficha))
@@ -134,7 +134,7 @@ object MenuGlobal {
         }
 
         val relogio = TextView(tela).apply {
-            textSize = 18f
+            setTextSize(android.util.TypedValue.COMPLEX_UNIT_DIP, 18f)
             setTextColor(ContextCompat.getColor(tela, R.color.text_primary))
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = (12 * d).toInt() }
@@ -251,6 +251,11 @@ object MenuGlobal {
  */
 @UnstableApi
 abstract class TelaComMenu : AppCompatActivity() {
+
+    override fun attachBaseContext(base: android.content.Context) {
+        super.attachBaseContext(TamanhoDaTela.envolver(base))
+    }
+
 
     protected open val aba: Aba = Aba.NENHUMA
     protected open fun aoFocarMenu() {}

@@ -32,6 +32,11 @@ import android.graphics.BitmapFactory
  */
 class PerfisActivity : AppCompatActivity() {
 
+    override fun attachBaseContext(base: android.content.Context) {
+        super.attachBaseContext(TamanhoDaTela.envolver(base))
+    }
+
+
     private enum class Modo { ESCOLHER, GERENCIAR, EDITAR }
 
     private var modo = Modo.ESCOLHER

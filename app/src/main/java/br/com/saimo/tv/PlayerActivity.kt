@@ -77,6 +77,11 @@ import org.json.JSONArray
 @UnstableApi
 class PlayerActivity : AppCompatActivity(), Connect.Listener {
 
+    override fun attachBaseContext(base: android.content.Context) {
+        super.attachBaseContext(TamanhoDaTela.envolver(base))
+    }
+
+
     companion object {
         /// Altura da legenda (fração da tela, de baixo) com a barra e os botões à vista.
         private const val LEGENDA_COM_CONTROLES = 0.3f

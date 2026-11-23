@@ -37,6 +37,11 @@ import kotlinx.coroutines.launch
 @UnstableApi
 class NovelinhaPlayerActivity : ComponentActivity() {
 
+    override fun attachBaseContext(base: android.content.Context) {
+        super.attachBaseContext(TamanhoDaTela.envolver(base))
+    }
+
+
     companion object {
         private const val ID = "novelinha.id"
         fun abrir(context: Context, id: String) =
